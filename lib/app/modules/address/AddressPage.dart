@@ -17,12 +17,14 @@ class AddressPage extends StatefulWidget {
   final Map<String, dynamic>? initialUser;
   final bool showAddressListFirst;
   final bool initialShowUserSection;
+  final bool isSelectionMode;
 
   AddressPage({
     Key? key,
     this.initialUser,
     this.showAddressListFirst = false,
     this.initialShowUserSection = false,
+    this.isSelectionMode = false,
   }) : super(key: key) {
     if (!Get.isRegistered<AddressController>()) {
       Get.put(AddressController());
@@ -204,7 +206,7 @@ class _AddressPageState extends State<AddressPage> {
               title: Text('Use Current Location'),
               subtitle: Text('Automatically fill address using GPS'),
               onTap: () {
-                Get.back();
+                Navigator.of(context).pop();
                 _getCurrentLocation();
               },
             ),
@@ -214,17 +216,17 @@ class _AddressPageState extends State<AddressPage> {
               title: Text('Enter Manually'),
               subtitle: Text('Type your address manually'),
               onTap: () {
-                Get.back();
-                // Focus on the first field
-                FocusScope.of(
-                  context,
-                ).requestFocus(FocusNode()..requestFocus());
+                Navigator.of(context).pop();
+                // We'll let the user tap into the text field naturally
               },
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Get.back(), child: Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(), 
+              child: Text('Cancel')
+          ),
         ],
       ),
     );
@@ -275,7 +277,7 @@ class _AddressPageState extends State<AddressPage> {
       backgroundColor: AppColors.neutralBackground,
       appBar: AppBar(
         leading: IconButton(
-          onPressed: () => Get.back(result: false),
+          onPressed: () => Navigator.of(context).pop(false),
           icon: const Icon(Icons.arrow_back),
           color: AppColors.textDark,
         ),
@@ -637,168 +639,176 @@ class _AddressPageState extends State<AddressPage> {
         await controller.fetchAddresses();
       },
       color: AppColors.blinkitGreen,
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, totalBottomPadding),
-        itemCount: controller.addresses.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (_, index) {
-          final AddressModel addr = controller.addresses[index];
-          final bool isSelected =
-              controller.selectedAddress.value?.id == addr.id;
+      child: Obx(() {
+        // Register dependency synchronously so Obx rebuilds the list on selection change
+        final currSelected = controller.selectedAddress.value;
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, totalBottomPadding),
+          itemCount: controller.addresses.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (_, index) {
+            final AddressModel addr = controller.addresses[index];
+            final bool isSelected = currSelected?.id == addr.id;
 
-          return InkWell(
-            onTap: () {
-              controller.selectAddress(addr);
-              _storage.write('default_address', addr.toJson());
-              Get.back(result: true);
-            },
-            borderRadius: BorderRadius.circular(16),
-            child: ClipRRect(
-              borderRadius: const BorderRadius.only(
-                bottomRight: Radius.circular(14),
-                topRight: Radius.circular(14),
-              ),
-              child: CustomPaint(
-                painter: AddressCardPainter(
-                  backgroundColor: AppColors.white,
-                  accentColor: AppColors.blinkitGreen,
-                  isSelected: isSelected,
+            return InkWell(
+              onTap: () {
+                controller.selectAddress(addr);
+                _storage.write('default_address', addr.toJson());
+                if (widget.isSelectionMode) {
+                  Navigator.of(context).pop(true);
+                }
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  bottomRight: Radius.circular(14),
+                  topRight: Radius.circular(14),
                 ),
-                child: Container(
-                  padding: const EdgeInsets.all(16.0),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.textDark.withOpacity(
-                          isSelected ? 0.1 : 0.05,
-                        ),
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
+                child: CustomPaint(
+                  painter: AddressCardPainter(
+                    backgroundColor: AppColors.white,
+                    accentColor: AppColors.blinkitGreen,
+                    isSelected: isSelected,
                   ),
-                  child: Stack(
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${_getEmojiForLabel(addr.label)} ${addr.label}',
-                            style: textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textDark,
-                            ),
+                  child: Container(
+                    padding: const EdgeInsets.all(16.0),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.textDark.withOpacity(
+                            isSelected ? 0.1 : 0.05,
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            addr.street,
-                            style: textTheme.bodyLarge?.copyWith(
-                              color: AppColors.textMedium,
-                              height: 1.4,
-                            ),
+                          blurRadius: 6,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${_getEmojiForLabel(addr.label)} ${addr.label}',
+                                style: textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textDark,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                addr.street,
+                                style: textTheme.bodyLarge?.copyWith(
+                                  color: AppColors.textMedium,
+                                  height: 1.4,
+                                ),
+                              ),
+                              Text(
+                                '${addr.city}, ${addr.state} - ${addr.pinCode}',
+                                style: textTheme.bodyLarge?.copyWith(
+                                  color: AppColors.textMedium,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            '${addr.city}, ${addr.state} - ${addr.pinCode}',
-                            style: textTheme.bodyLarge?.copyWith(
-                              color: AppColors.textMedium,
-                              height: 1.4,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Row(
+                        ),
+                        const SizedBox(width: 8),
+                        Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(
-                              icon: Icon(
-                                Icons.edit,
-                                color: AppColors.blinkitGreen,
-                                size: 20,
-                              ),
-                              onPressed: () {
-                                controller.startEditingAddress(addr);
-                              },
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints.tightFor(
-                                width: 36,
-                                height: 36,
-                              ),
-                              splashRadius: 20,
-                            ),
-                            IconButton(
-                              icon: Icon(
-                                Icons.delete,
-                                color: AppColors.danger,
-                                size: 20,
-                              ),
-                              onPressed: () async {
-                                if (addr.id != null) {
-                                  final bool confirmed =
-                                      await Get.dialog<bool>(
-                                        AlertDialog(
-                                          title: Text(
-                                            'Delete Address',
-                                            style: textTheme.titleLarge,
-                                          ),
-                                          content: Text(
-                                            'Are you sure you want to delete this address?',
-                                            style: textTheme.bodyMedium,
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Get.back(result: false),
-                                              child: Text(
-                                                'Cancel',
-                                                style: textTheme.labelLarge
-                                                    ?.copyWith(
-                                                      color:
-                                                          AppColors.textMedium,
-                                                    ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.edit,
+                                    color: AppColors.blinkitGreen,
+                                    size: 20,
+                                  ),
+                                  onPressed: () {
+                                    controller.startEditingAddress(addr);
+                                  },
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints.tightFor(
+                                    width: 36,
+                                    height: 36,
+                                  ),
+                                  splashRadius: 20,
+                                ),
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.delete,
+                                    color: AppColors.danger,
+                                    size: 20,
+                                  ),
+                                  onPressed: () async {
+                                    if (addr.id != null) {
+                                      final bool confirmed =
+                                          await Get.dialog<bool>(
+                                            AlertDialog(
+                                              title: Text(
+                                                'Delete Address',
+                                                style: textTheme.titleLarge,
                                               ),
-                                            ),
-                                            ElevatedButton(
-                                              onPressed: () =>
-                                                  Get.back(result: true),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor:
-                                                    AppColors.danger,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
+                                              content: Text(
+                                                'Are you sure you want to delete this address?',
+                                                style: textTheme.bodyMedium,
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Get.back(result: false),
+                                                  child: Text(
+                                                    'Cancel',
+                                                    style: textTheme.labelLarge
+                                                        ?.copyWith(
+                                                          color: AppColors.textMedium,
+                                                        ),
+                                                  ),
                                                 ),
-                                              ),
-                                              child: Text(
-                                                'Delete',
-                                                style: textTheme.labelLarge
-                                                    ?.copyWith(
-                                                      color: AppColors.white,
+                                                ElevatedButton(
+                                                  onPressed: () =>
+                                                      Get.back(result: true),
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: AppColors.danger,
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(8),
                                                     ),
-                                              ),
+                                                  ),
+                                                  child: Text(
+                                                    'Delete',
+                                                    style: textTheme.labelLarge
+                                                        ?.copyWith(
+                                                          color: AppColors.white,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                          ],
-                                        ),
-                                      ) ??
-                                      false;
-                                  if (confirmed) {
-                                    await controller.deleteAddress(addr.id!);
-                                  }
-                                } else {}
-                              },
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints.tightFor(
-                                width: 36,
-                                height: 36,
-                              ),
-                              splashRadius: 20,
+                                          ) ??
+                                          false;
+                                      if (confirmed) {
+                                        await controller.deleteAddress(addr.id!);
+                                      }
+                                    }
+                                  },
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints.tightFor(
+                                    width: 36,
+                                    height: 36,
+                                  ),
+                                  splashRadius: 20,
+                                ),
+                              ],
                             ),
                             if (isSelected)
                               Padding(
-                                padding: const EdgeInsets.only(left: 8.0),
+                                padding: const EdgeInsets.only(top: 4.0),
                                 child: Icon(
                                   Icons.check_circle_rounded,
                                   color: AppColors.blinkitGreen,
@@ -807,15 +817,15 @@ class _AddressPageState extends State<AddressPage> {
                               ),
                           ],
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
-      ),
+            );
+          },
+        );
+      }),
     );
   }
 
@@ -1334,7 +1344,7 @@ class _AddressPageState extends State<AddressPage> {
       } else {
         await Future.delayed(const Duration(milliseconds: 300));
         if (mounted) {
-          Get.offAll(() => CheckoutScreen());
+          Navigator.of(context).pop(true);
         }
       }
     } catch (e) {

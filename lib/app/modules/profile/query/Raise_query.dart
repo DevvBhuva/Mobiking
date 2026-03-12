@@ -7,9 +7,10 @@ import '../../../controllers/query_getx_controller.dart';
 import '../../../themes/app_theme.dart';
 
 class RaiseQueryDialog extends StatefulWidget {
-  final String? orderId;
+  final String? orderId; // Internal Mongo ID
+  final String? displayOrderId; // Human readable ID (#12345)
 
-  const RaiseQueryDialog({super.key, this.orderId});
+  const RaiseQueryDialog({super.key, this.orderId, this.displayOrderId});
 
   @override
   State<RaiseQueryDialog> createState() => _RaiseQueryDialogState();
@@ -28,9 +29,9 @@ class _RaiseQueryDialogState extends State<RaiseQueryDialog>
   @override
   void initState() {
     super.initState();
-    if (widget.orderId != null && widget.orderId!.isNotEmpty) {
-      _titleController.text = 'Query for Order ID: ${widget.orderId}';
-    }
+    // User requested no autofill for the title "ya toh na aye"
+    // I will leave it empty. The user can type their own title.
+    // The link to the order is maintained via the orderId field on submission.
   }
 
   @override
@@ -133,18 +134,31 @@ class _RaiseQueryDialogState extends State<RaiseQueryDialog>
                 ),
                 child: Form(
                   key: _formKey,
-                  child: Column(
-                    mainAxisSize:
-                        MainAxisSize.min, // This respects the content!
-                    children: [
-                      _buildHeader(textTheme),
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: _buildContent(textTheme),
-                      ),
-                      _buildActions(textTheme),
-                    ],
-                  ),
+                    child: Stack(
+                      children: [
+                        Column(
+                          mainAxisSize:
+                              MainAxisSize.min, // This respects the content!
+                          children: [
+                            _buildHeader(textTheme),
+                            Flexible(
+                              fit: FlexFit.loose,
+                              child: _buildContent(textTheme),
+                            ),
+                            _buildActions(textTheme),
+                          ],
+                        ),
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close, color: AppColors.textLight),
+                            splashRadius: 20,
+                          ),
+                        ),
+                      ],
+                    ),
                 ),
               ),
             ),
@@ -227,7 +241,9 @@ class _RaiseQueryDialogState extends State<RaiseQueryDialog>
     onFieldSubmitted: (_) => _messageFocus.requestFocus(),
     decoration: InputDecoration(
       labelText: 'Query Title *',
-      hintText: 'e.g.: Issue with delivery of order #12345',
+      hintText: widget.displayOrderId != null
+          ? 'e.g.: Issue with order #${widget.displayOrderId}'
+          : 'e.g.: Issue with delivery',
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
       filled: true,
       fillColor: AppColors.neutralBackground.withOpacity(0.5),

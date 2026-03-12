@@ -90,7 +90,7 @@ class CreateOrderRequestModel {
   final bool isAppOrder; // <--- NEW FIELD: Added for app identification
 
   // === NEW COUPON FIELDS ===
-  final String? couponId; // Coupon ID if applied
+  final String? coupon; // Coupon ID if applied
   final String? couponCode; // Coupon code string if applied
   final double? discountAmount; // Discount amount if applied
 
@@ -110,7 +110,7 @@ class CreateOrderRequestModel {
     required this.items,
     required this.addressId, // <--- existing optional field
     this.isAppOrder = true, // <--- existing optional field with default
-    this.couponId, // <--- newly added
+    this.coupon, // <--- newly added
     this.couponCode, // <--- newly added
     this.discountAmount, // <--- newly added
   });
@@ -133,10 +133,13 @@ class CreateOrderRequestModel {
       'addressId': addressId,
       'isAppOrder': isAppOrder, // <--- existing field
       // New coupon fields only added if not null:
-      if (couponId != null) 'couponId': couponId,
+      if (coupon != null) 'coupon': coupon,
       if (couponCode != null) 'couponCode': couponCode,
+      if (couponCode != null) 'coupon_code': couponCode, // ADDED: Snake-case alias
       if (discountAmount != null && discountAmount! > 0)
         'discountAmount': discountAmount,
+      if (discountAmount != null && discountAmount! > 0)
+        'discount_amount': discountAmount, // ADDED: Snake-case alias
     };
   }
 }

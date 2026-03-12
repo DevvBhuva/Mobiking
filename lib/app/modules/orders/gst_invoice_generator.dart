@@ -343,29 +343,73 @@ class GstInvoiceGenerator {
                           ),
                         ],
                       ),
-                      if (discountApplied > 0) ...[
-                        pw.SizedBox(height: 4),
-                        pw.Row(
-                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                          children: [
-                            pw.Text('Discount (-)', style: textStyleRegular),
-                            pw.Text(
-                              '-₹ ${discountApplied.toStringAsFixed(2)}',
-                              style: pw.TextStyle(
-                                font: font,
-                                fontSize: 9,
-                                color: PdfColors.red,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
                     ],
                   ),
                 ),
               ),
 
-              // Box 4: Amount in words (Using Table for full height center divider)
+              // Box 4: Tax Breakdown Table
+              pw.Table(
+                border: pw.TableBorder.all(width: 1),
+                columnWidths: {
+                  0: const pw.FlexColumnWidth(14), // HSN/SAC
+                  1: const pw.FlexColumnWidth(16), // Taxable Amount
+                  2: const pw.FlexColumnWidth(14), // CGST %
+                  3: const pw.FlexColumnWidth(14), // Amount
+                  4: const pw.FlexColumnWidth(14), // SGST %
+                  5: const pw.FlexColumnWidth(14), // Amount
+                  6: const pw.FlexColumnWidth(14), // Total Tax
+                },
+                children: [
+                  pw.TableRow(
+                    decoration: const pw.BoxDecoration(
+                      color: PdfColors.grey100,
+                    ),
+                    children: [
+                      _pdfTableCell('HSN/SAC', textStyleBold, isCenter: true),
+                      _pdfTableCell('Taxable Amount', textStyleBold, isCenter: true),
+                      _pdfTableCell('CGST %', textStyleBold, isCenter: true),
+                      _pdfTableCell('Amount', textStyleBold, isCenter: true),
+                      _pdfTableCell('SGST %', textStyleBold, isCenter: true),
+                      _pdfTableCell('Amount', textStyleBold, isCenter: true),
+                      _pdfTableCell('Total Tax Amount', textStyleBold, isCenter: true),
+                    ],
+                  ),
+                  ...allItems.map((item) {
+                    final double adjustedTaxableValue = (item['taxableValue'] as double);
+                    final double adjustedTaxAmount = (item['taxAmount'] as double);
+                    final double cgstRate = (item['gstRate'] as double) / 2;
+                    final double sgstRate = (item['gstRate'] as double) / 2;
+                    final double cgstAmount = adjustedTaxAmount / 2;
+                    final double sgstAmount = adjustedTaxAmount / 2;
+                    return pw.TableRow(
+                      children: [
+                        _pdfTableCell('${item['hsn']}', textStyleRegular, isCenter: true),
+                        _pdfTableCell('₹ ${adjustedTaxableValue.toStringAsFixed(2)}', textStyleRegular, isCenter: true),
+                        _pdfTableCell('${cgstRate.toStringAsFixed(0)}%', textStyleRegular, isCenter: true),
+                        _pdfTableCell('₹ ${cgstAmount.toStringAsFixed(2)}', textStyleRegular, isCenter: true),
+                        _pdfTableCell('${sgstRate.toStringAsFixed(0)}%', textStyleRegular, isCenter: true),
+                        _pdfTableCell('₹ ${sgstAmount.toStringAsFixed(2)}', textStyleRegular, isCenter: true),
+                        _pdfTableCell('₹ ${adjustedTaxAmount.toStringAsFixed(2)}', textStyleRegular, isCenter: true),
+                      ],
+                    );
+                  }),
+                  pw.TableRow(
+                    children: [
+                      _pdfTableCell('Total', textStyleBold, isCenter: true),
+                      _pdfTableCell('₹ ${totalTaxableValue.toStringAsFixed(2)}', textStyleBold, isCenter: true),
+                      _pdfTableCell('-', textStyleRegular, isCenter: true),
+                      _pdfTableCell('₹ ${(totalTaxAmount / 2).toStringAsFixed(2)}', textStyleBold, isCenter: true),
+                      _pdfTableCell('-', textStyleRegular, isCenter: true),
+                      _pdfTableCell('₹ ${(totalTaxAmount / 2).toStringAsFixed(2)}', textStyleBold, isCenter: true),
+                      _pdfTableCell('₹ ${totalTaxAmount.toStringAsFixed(2)}', textStyleBold, isCenter: true),
+                    ],
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 6),
+
+              // Box 5: Amount in words (Using Table for full height center divider)
               pw.Table(
                 border: pw.TableBorder.all(width: 1),
                 columnWidths: {
@@ -380,7 +424,7 @@ class GstInvoiceGenerator {
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
-                            pw.Text('Amount in Words :', style: textStyleBold),
+                            pw.Text('Amount in Words (To be Paid) :', style: textStyleBold),
                             pw.SizedBox(height: 4),
                             pw.Text(amountInWords, style: textStyleRegular),
                           ],
@@ -391,117 +435,49 @@ class GstInvoiceGenerator {
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
-                            pw.Text('TOTAL AMOUNT', style: textStyleBold),
-                            pw.SizedBox(height: 8),
-                            pw.Text(
-                              '₹ ${totalAmount.toStringAsFixed(2)}',
-                              style: pw.TextStyle(font: boldFont, fontSize: 13),
+                            pw.Row(
+                                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                children: [
+                                  pw.Text('TOTAL AMOUNT', style: textStyleBold),
+                                  pw.Text('₹ ${(totalTaxableValue + totalTaxAmount).toStringAsFixed(2)}', style: textStyleBold),
+                                ]
                             ),
-                            pw.SizedBox(height: 8),
-                            pw.Text('Amount Paid', style: textStyleSmall),
-                            pw.Text(
-                              '₹ ${(order.paymentStatus.toLowerCase() == "paid" || order.paymentStatus.toLowerCase() == "success" ? totalAmount : 0).toStringAsFixed(2)}',
-                              style: textStyleRegular,
+                            if (discountApplied > 0) ...[
+                               pw.SizedBox(height: 4),
+                               pw.Row(
+                                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    pw.Text('Discount (-)', style: pw.TextStyle(font: font, fontSize: 9, color: PdfColors.red)),
+                                    pw.Text('₹ ${discountApplied.toStringAsFixed(2)}', style: pw.TextStyle(font: font, fontSize: 9, color: PdfColors.red)),
+                                  ]
+                               ),
+                            ],
+                            pw.SizedBox(height: 4),
+                            pw.Row(
+                                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                children: [
+                                  pw.Text('AMOUNT (TO BE PAID)', style: textStyleBold),
+                                  pw.Text('₹ ${totalAmount.toStringAsFixed(2)}', style: textStyleBold),
+                                ]
                             ),
-                            pw.SizedBox(height: 6),
-                            pw.Text('Balance', style: textStyleSmall),
-                            pw.Text(
-                              '₹ ${(order.paymentStatus.toLowerCase() == "paid" || order.paymentStatus.toLowerCase() == "success" ? 0 : totalAmount).toStringAsFixed(2)}',
-                              style: textStyleRegular,
+                            pw.SizedBox(height: 4),
+                            pw.Row(
+                                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                children: [
+                                  pw.Text('Amount Paid', style: textStyleSmall),
+                                  pw.Text('₹ ${(order.paymentStatus.toLowerCase() == "paid" || order.paymentStatus.toLowerCase() == "success" ? totalAmount : 0).toStringAsFixed(2)}', style: textStyleRegular),
+                                ]
+                            ),
+                            pw.SizedBox(height: 4),
+                            pw.Row(
+                                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                children: [
+                                  pw.Text('Balance', style: textStyleSmall),
+                                  pw.Text('₹ ${(order.paymentStatus.toLowerCase() == "paid" || order.paymentStatus.toLowerCase() == "success" ? 0 : totalAmount).toStringAsFixed(2)}', style: textStyleRegular),
+                                ]
                             ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              pw.SizedBox(height: 6),
-
-              // Box 5: Tax Breakdown Table
-              pw.Table(
-                border: pw.TableBorder.all(width: 1),
-                columnWidths: {
-                  0: const pw.FlexColumnWidth(25),
-                  1: const pw.FlexColumnWidth(25),
-                  2: const pw.FlexColumnWidth(15),
-                  3: const pw.FlexColumnWidth(15),
-                  4: const pw.FlexColumnWidth(20),
-                },
-                children: [
-                  pw.TableRow(
-                    decoration: const pw.BoxDecoration(
-                      color: PdfColors.grey100,
-                    ),
-                    children: [
-                      _pdfTableCell('HSN/SAC', textStyleBold, isCenter: true),
-                      _pdfTableCell(
-                        'Taxable Amount',
-                        textStyleBold,
-                        isCenter: true,
-                      ),
-                      _pdfTableCell('Rate', textStyleBold, isCenter: true),
-                      _pdfTableCell('Amount', textStyleBold, isCenter: true),
-                      _pdfTableCell(
-                        'Total Tax Amount',
-                        textStyleBold,
-                        isCenter: true,
-                      ),
-                    ],
-                  ),
-                  ...allItems.map((item) {
-                    final double adjustedTaxableValue =
-                        (item['taxableValue'] as double);
-                    final double adjustedTaxAmount =
-                        (item['taxAmount'] as double);
-                    return pw.TableRow(
-                      children: [
-                        _pdfTableCell(
-                          '${item['hsn']}',
-                          textStyleRegular,
-                          isCenter: true,
-                        ),
-                        _pdfTableCell(
-                          '₹ ${adjustedTaxableValue.toStringAsFixed(2)}',
-                          textStyleRegular,
-                          isCenter: true,
-                        ),
-                        _pdfTableCell(
-                          '${(item['gstRate'] as double).toStringAsFixed(0)}%',
-                          textStyleRegular,
-                          isCenter: true,
-                        ),
-                        _pdfTableCell(
-                          '₹ ${adjustedTaxAmount.toStringAsFixed(2)}',
-                          textStyleRegular,
-                          isCenter: true,
-                        ),
-                        _pdfTableCell(
-                          '₹ ${adjustedTaxAmount.toStringAsFixed(2)}',
-                          textStyleRegular,
-                          isCenter: true,
-                        ),
-                      ],
-                    );
-                  }),
-                  pw.TableRow(
-                    children: [
-                      _pdfTableCell('Total', textStyleBold, isCenter: true),
-                      _pdfTableCell(
-                        '₹ ${totalTaxableValue.toStringAsFixed(2)}',
-                        textStyleBold,
-                        isCenter: true,
-                      ),
-                      _pdfTableCell('-', textStyleRegular, isCenter: true),
-                      _pdfTableCell(
-                        '₹ ${totalTaxAmount.toStringAsFixed(2)}',
-                        textStyleBold,
-                        isCenter: true,
-                      ),
-                      _pdfTableCell(
-                        '₹ ${totalTaxAmount.toStringAsFixed(2)}',
-                        textStyleBold,
-                        isCenter: true,
                       ),
                     ],
                   ),
@@ -524,44 +500,44 @@ class GstInvoiceGenerator {
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
-                            pw.Text('Terms / Declaration', style: textStyleBold),
-                            pw.SizedBox(height: 6),
-                            pw.Text(
-                              '1. Goods once sold will not be taken back or exchange',
-                              style: textStyleSmall,
+                            pw.Padding(
+                              padding: const pw.EdgeInsets.only(bottom: 4),
+                              child: pw.Text('Invoice Terms & Conditions:', 
+                                style: pw.TextStyle(font: boldFont, fontSize: 8)),
                             ),
-                            pw.Text(
-                              '2. Mobiking will not be responsible for any warranty',
-                              style: textStyleSmall,
-                            ),
-                            pw.Text(
-                              '3. All the disputes are subject to delhi jurisdiction only',
-                              style: textStyleSmall,
-                            ),
-                            pw.SizedBox(height: 8),
-                            pw.Text('Bank Details -', style: textStyleBold),
-                            pw.Text(
-                              'Bank Name : MOBIKING',
-                              style: textStyleSmall,
-                            ),
-                            pw.Text(
-                              'Account No. : 50200048030390',
-                              style: textStyleSmall,
-                            ),
-                            pw.Text(
-                              'Branch & IFSC : HDFC0000480',
-                              style: textStyleSmall,
-                            ),
+                            ...[
+                              'All products are genuine branded gadgets and are checked before dispatch.',
+                              'Products may come from bulk or excess inventory, so packaging may be opened or repacked.',
+                              'Customers are advised to inspect the product within the checking period after delivery.',
+                              'No return or exchange will be accepted after successful delivery, except for genuine issues reported within the checking period.',
+                              'Brand or manufacturer warranty is not the responsibility of Mobiking, unless clearly stated.',
+                              'The company is not liable for damage caused after delivery or due to misuse.',
+                              'All disputes will be subject to Delhi jurisdiction only.',
+                            ].map((term) => pw.Padding(
+                                  padding: const pw.EdgeInsets.only(bottom: 2),
+                                  child: pw.Row(
+                                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                    children: [
+                                      pw.Text('• ', style: pw.TextStyle(font: font, fontSize: 7)),
+                                      pw.Expanded(
+                                        child: pw.Text(
+                                          term,
+                                          style: pw.TextStyle(font: font, fontSize: 7),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )),
                           ],
                         ),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(12),
                         child: pw.Column(
-                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment: pw.MainAxisAlignment.center,
                           children: [
                             pw.Text('For, Mobiking', style: textStyleBold),
-                            pw.SizedBox(height: 50),
+                            pw.SizedBox(height: 60),
                             pw.Text(
                               'Authorised Signatory',
                               style: textStyleSmall,

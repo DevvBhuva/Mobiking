@@ -354,7 +354,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () => Get.offAll(() => HomeScreen()),
+                onPressed: () => Get.back(),
                 icon: const Icon(
                   Icons.shopping_cart_outlined,
                   color: AppColors.white,
@@ -621,6 +621,44 @@ class _OrderCard extends StatelessWidget {
                 ),
               ],
             ),
+            if (order.couponCode != null && order.couponCode!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: AppColors.success.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.local_offer,
+                          color: AppColors.success,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Coupon: ${order.couponCode}',
+                          style: textTheme.labelSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.success,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 4),
             Text(
               'Placed: $orderDate',
@@ -720,7 +758,7 @@ class _OrderCard extends StatelessWidget {
                     Align(
                       alignment: Alignment.centerRight,
                       child: Text(
-                        '₹${item.price.toStringAsFixed(0)}',
+                        '₹${item.price % 1 == 0 ? item.price.toInt().toString() : item.price.toStringAsFixed(2)}',
                         style: textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                           color: AppColors.textDark,
@@ -741,18 +779,24 @@ class _OrderCard extends StatelessWidget {
             buildSummaryRow(
               context,
               'Subtotal',
-              '₹${order.subtotal?.toStringAsFixed(0) ?? '0'}',
+              '₹${order.subtotal != null ? (order.subtotal! % 1 == 0 ? order.subtotal!.toInt().toString() : order.subtotal!.toStringAsFixed(2)) : '0'}',
             ),
+            if (order.couponCode != null && order.couponCode!.isNotEmpty)
+              buildSummaryRow(
+                context,
+                'Coupon Code',
+                '${order.couponCode}',
+              ),
             buildSummaryRow(
               context,
               'Delivery Charge',
-              '₹${order.deliveryCharge.toStringAsFixed(0)}',
+              '₹${order.deliveryCharge % 1 == 0 ? order.deliveryCharge.toInt().toString() : order.deliveryCharge.toStringAsFixed(2)}',
             ),
             if (order.discount > 0)
               buildSummaryRow(
                 context,
                 'Discount',
-                '-₹${order.discount.toStringAsFixed(0)}',
+                '-₹${order.discount % 1 == 0 ? order.discount.toInt().toString() : order.discount.toStringAsFixed(2)}',
               ),
 
             const SizedBox(height: 12),
@@ -769,7 +813,7 @@ class _OrderCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '₹${order.orderAmount.toStringAsFixed(0)}',
+                    '₹${order.orderAmount % 1 == 0 ? order.orderAmount.toInt().toString() : order.orderAmount.toStringAsFixed(2)}',
                     style: textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                       color: AppColors.success,
@@ -861,13 +905,7 @@ class _OrderCard extends StatelessWidget {
                     ),
                   ),
                 if (order.scans?.isNotEmpty == true) const SizedBox(width: 12),
-                if ([
-                  'delivered',
-                  'accepted',
-                  'shipped',
-                  'cancelled',
-                  'rejected',
-                ].contains(order.status.toLowerCase()))
+                if (order.status.toLowerCase() == 'delivered')
                   OutlinedButton(
                     onPressed: () {
                       Get.to(() => InvoiceScreen(order: order));
@@ -1051,7 +1089,10 @@ class _OrderCard extends StatelessWidget {
                               child: ElevatedButton.icon(
                                 onPressed: () {
                                   Get.dialog(
-                                    RaiseQueryDialog(orderId: order.id!),
+                                    RaiseQueryDialog(
+                                      orderId: order.id,
+                                      displayOrderId: order.orderId,
+                                    ),
                                   );
                                 },
                                 icon: const Icon(

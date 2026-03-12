@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:get/get.dart';
 import 'package:mobiking/app/themes/app_theme.dart';
 import '../../../controllers/cart_controller.dart';
@@ -61,19 +62,26 @@ class CartItemTile extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: Image.network(
-              imageUrl,
-              width: 60,
-              height: 60,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(
+            child: RepaintBoundary(
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
                 width: 60,
                 height: 60,
-                color: AppColors.neutralBackground,
-                child: Icon(
-                  Icons.image_not_supported,
-                  color: AppColors.textLight,
-                  size: 20,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  width: 60,
+                  height: 60,
+                  color: AppColors.neutralBackground,
+                ),
+                errorWidget: (context, url, error) => Container(
+                  width: 60,
+                  height: 60,
+                  color: AppColors.neutralBackground,
+                  child: Icon(
+                    Icons.image_not_supported,
+                    color: AppColors.textLight,
+                    size: 20,
+                  ),
                 ),
               ),
             ),

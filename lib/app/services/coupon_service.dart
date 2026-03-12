@@ -47,52 +47,34 @@ class CouponService extends GetxService {
   }
 
   // ✅ VALIDATION ONLY: Fetch and validate coupon by code
-  Future<CouponResponse> validateCouponCode(String couponCode) async {
+  Future<CouponResponse> validateCouponCode(
+    String couponCode, {
+    String paymentMethod = 'COD',
+  }) async {
     if (couponCode.trim().isEmpty) {
       throw CouponServiceException('Coupon code cannot be empty.');
     }
 
     try {
-      _log('📤 Validating coupon code: $couponCode');
+      _log(
+        '📤 Validating coupon: $couponCode with payment method: $paymentMethod',
+      );
 
-      // Try multiple possible endpoints
-      final possibleEndpoints = [
-        '$_baseUrl/coupon/code/$couponCode',
-        '$_baseUrl/coupons/$couponCode',
-        '$_baseUrl/coupon/validate/$couponCode',
-        '$_baseUrl/coupon/get/$couponCode',
-      ];
+      final encodedCode = Uri.encodeComponent(couponCode);
+      final encodedMethod = Uri.encodeComponent(paymentMethod);
+      final endpoint = '$_baseUrl/coupon/code/validate/$encodedCode/$encodedMethod';
+      _log('🔗 Trying endpoint: $endpoint');
 
-      dio.Response? response;
-      String usedEndpoint = '';
+      final response = await _dio.get(
+        endpoint,
+        options: dio.Options(
+          headers: _getAuthHeaders(),
+          sendTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
+        ),
+      );
 
-      for (String endpoint in possibleEndpoints) {
-        try {
-          _log('🔗 Trying endpoint: $endpoint');
-
-          response = await _dio.get(
-            endpoint,
-            options: dio.Options(
-              headers: _getAuthHeaders(),
-              sendTimeout: const Duration(seconds: 30),
-              receiveTimeout: const Duration(seconds: 30),
-            ),
-          );
-
-          usedEndpoint = endpoint;
-          _log('✅ Endpoint worked: $endpoint');
-          break;
-        } catch (e) {
-          _log('❌ Endpoint failed: $endpoint - $e');
-          continue;
-        }
-      }
-
-      if (response == null) {
-        throw CouponServiceException(
-          'Coupon validation failed - all endpoints unavailable.',
-        );
-      }
+      _log('✅ Endpoint worked: $endpoint');
 
       _log(
         '==================== COUPON VALIDATION RESPONSE ====================',

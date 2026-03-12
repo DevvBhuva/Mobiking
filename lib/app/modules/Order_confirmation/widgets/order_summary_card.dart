@@ -31,6 +31,17 @@ class OrderSummaryCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildRow("Subtotal", subtotal),
+            if (order.couponCode != null && order.couponCode!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text("Coupon Code", style: textTheme.bodySmall?.copyWith(color: AppColors.textMedium, fontSize: 12)),
+                    Text(order.couponCode!, style: textTheme.bodySmall?.copyWith(color: AppColors.success, fontWeight: FontWeight.w700, fontSize: 12.5)),
+                  ],
+                ),
+              ),
             if (discount > 0)
               _buildRow("Discount", -discount, isDiscount: true),
             _buildRow("Delivery Fee", delivery),
@@ -78,7 +89,10 @@ class OrderSummaryCard extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(title, style: titleStyle),
-          Text("₹ ${value.toStringAsFixed(2)}", style: valueStyle),
+          Text(
+            "₹ ${value % 1 == 0 ? value.toInt().toString() : value.toStringAsFixed(2)}",
+            style: valueStyle,
+          ),
         ],
       ),
     );

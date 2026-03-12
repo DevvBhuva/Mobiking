@@ -10,6 +10,21 @@ class CouponModel {
   final DateTime updatedAt;
   final int version;
 
+  final String? type;
+  final String? description;
+  final bool isFirstOrderOnly;
+  final String? restrictionPaymentMethod;
+  final int? usageLimit;
+  final bool isVisible;
+
+  static String _normalizeType(dynamic type) {
+    if (type == null) return '';
+    String t = type.toString().toLowerCase().trim().replaceAll(' ', '_');
+    if (t == 'firsttime') return 'first_time';
+    if (t == 'onetime') return 'one_time';
+    return t;
+  }
+
   CouponModel({
     required this.id,
     required this.code,
@@ -20,12 +35,18 @@ class CouponModel {
     required this.createdAt,
     required this.updatedAt,
     required this.version,
+    this.type,
+    this.description,
+    this.isFirstOrderOnly = false,
+    this.restrictionPaymentMethod,
+    this.usageLimit,
+    this.isVisible = true,
   });
 
   // ✅ FIXED: Factory constructor with proper error handling
   factory CouponModel.fromJson(Map<String, dynamic> json) {
     return CouponModel(
-      id: json['_id']?.toString() ?? '',
+      id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
       code: json['code']?.toString() ?? '',
       value: json['value']?.toString() ?? '0',
       percent: json['percent']?.toString() ?? '0',
@@ -38,6 +59,16 @@ class CouponModel {
       version: json['__v'] is int
           ? json['__v']
           : int.tryParse(json['__v']?.toString() ?? '0') ?? 0,
+      type: json['type']?.toString() ?? json['couponType']?.toString(),
+      description: json['description']?.toString(),
+      isFirstOrderOnly: json['isFirstOrderOnly'] == true || 
+                       json['firstOrderOnly'] == true ||
+                       _normalizeType(json['type']) == 'first_time',
+      restrictionPaymentMethod: json['restrictionPaymentMethod']?.toString() ?? 
+                                json['paymentMethod']?.toString(),
+      usageLimit: json['usageLimit'] is int ? json['usageLimit'] : 
+                 int.tryParse(json['usageLimit']?.toString() ?? ''),
+      isVisible: json['isVisible'] ?? json['visible'] ?? true,
     );
   }
 
@@ -80,6 +111,12 @@ class CouponModel {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       '__v': version,
+      'type': type,
+      'description': description,
+      'isFirstOrderOnly': isFirstOrderOnly,
+      'restrictionPaymentMethod': restrictionPaymentMethod,
+      'usageLimit': usageLimit,
+      'isVisible': isVisible,
     };
   }
 
@@ -87,7 +124,8 @@ class CouponModel {
   bool get isValid {
     try {
       final now = DateTime.now();
-      return now.isAfter(startDate) && now.isBefore(endDate);
+      // Inclusive of startDate
+      return !now.isBefore(startDate) && now.isBefore(endDate);
     } catch (e) {
       print('Error checking coupon validity: $e');
       return false;

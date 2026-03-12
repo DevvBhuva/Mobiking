@@ -51,14 +51,17 @@ class _CategoryProductsGridScreenState
         widget.subCategories[index].slug,
       );
 
+      // Filter: Only active products (show both in-stock and out-of-stock)
+      final activeProducts = products.where((p) => p.active == true).toList();
+
       // Sort: In stock (totalStock > 0) first, then out of stock
-      products.sort((a, b) {
+      activeProducts.sort((a, b) {
         if (a.totalStock > 0 && b.totalStock <= 0) return -1;
         if (a.totalStock <= 0 && b.totalStock > 0) return 1;
         return 0;
       });
 
-      displayedProducts.value = products;
+      displayedProducts.value = activeProducts;
     } catch (e) {
       print(e);
       // Handle error, maybe show a snackbar

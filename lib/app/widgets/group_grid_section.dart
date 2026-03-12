@@ -116,11 +116,8 @@ class _GroupWithProductsSectionState extends State<GroupWithProductsSection>
                               child: CachedNetworkImage(
                                 imageUrl: group.banner!,
                                 fit: BoxFit.cover,
-                                placeholder: (context, url) => const Center(
-                                  child: CircularProgressIndicator(
-                                    color: AppColors.accentNeon,
-                                    strokeWidth: 2,
-                                  ),
+                                placeholder: (context, url) => Container(
+                                  color: AppColors.neutralBackground,
                                 ),
                                 errorWidget: (context, url, error) =>
                                     const Center(

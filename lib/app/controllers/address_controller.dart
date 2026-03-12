@@ -44,6 +44,7 @@ class AddressController extends GetxController {
 
   // ✅ Add timer for debouncing PIN code input
   Timer? _pinCodeDebounceTimer;
+  bool _suppressPinCodeListener = false; // Flag to skip auto-detection during initial load
 
   @override
   void onInit() {
@@ -62,6 +63,8 @@ class AddressController extends GetxController {
 
   // ✅ Handle PIN code changes with debouncing
   void _onPinCodeChanged() {
+    if (_suppressPinCodeListener) return;
+
     final pincode = pinCodeController.text.trim();
 
     // Cancel previous timer
@@ -75,7 +78,7 @@ class AddressController extends GetxController {
       // Debounce the API call by 500ms
       _pinCodeDebounceTimer = Timer(const Duration(milliseconds: 500), () {
         // Double-check the PIN code hasn't changed during the delay
-        if (pinCodeController.text.trim() == pincode) {
+        if (pinCodeController.text.trim() == pincode && !_suppressPinCodeListener) {
           detectLocationFromPincode(pincode);
         }
       });
@@ -95,19 +98,25 @@ class AddressController extends GetxController {
       if (locationData != null &&
           locationData['city']!.isNotEmpty &&
           locationData['state']!.isNotEmpty) {
-        // Auto-fill city and state
-        cityController.text = locationData['city']!;
-        stateController.text = locationData['state']!;
+        
+        // ONLY auto-fill if the fields are empty or we are NOT in editing mode 
+        // OR if the user is actively typing a new PIN (not initial load)
+        final bool shouldFillCity = cityController.text.trim().isEmpty;
+        final bool shouldFillState = stateController.text.trim().isEmpty;
+
+        if (shouldFillCity) cityController.text = locationData['city']!;
+        if (shouldFillState) stateController.text = locationData['state']!;
 
         print(
           'AddressController: Location detected - City: ${locationData['city']}, State: ${locationData['state']}',
         );
 
-        // Show success message
-        _showToast(
-          'City and State have been auto-filled.',
-          backgroundColor: Colors.green,
-        );
+        if (shouldFillCity || shouldFillState) {
+          _showToast(
+            'City and State have been auto-filled.',
+            backgroundColor: Colors.green,
+          );
+        }
       } else {
         detectionError.value = 'Could not detect location for this PIN code';
         print(
@@ -176,6 +185,8 @@ class AddressController extends GetxController {
   }
 
   void startEditingAddress(AddressModel address) {
+    _suppressPinCodeListener = true; // Disable listener while setting initial values
+    
     _isEditing.value = true;
     _isAddingAddress.value = false;
     _addressBeingEdited.value = address;
@@ -192,6 +203,11 @@ class AddressController extends GetxController {
       selectedLabel.value = 'Other';
       customLabelController.text = address.label;
     }
+
+    // Use a slight delay to re-enable the listener to avoid the immediate trigger
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _suppressPinCodeListener = false;
+    });
   }
 
   Future<bool> saveAddress() async {
@@ -297,11 +313,13 @@ class AddressController extends GetxController {
     } on AddressServiceException catch (e) {
       print('AddressController: Error saving address: $e');
       addressErrorMessage.value = e.message;
+      _showToast(e.message, backgroundColor: Colors.red);
       return false;
     } catch (e) {
       print('AddressController: Unexpected error saving address: $e');
       addressErrorMessage.value =
           'An unexpected error occurred. Please try again later.';
+      _showToast(addressErrorMessage.value, backgroundColor: Colors.red);
       return false;
     } finally {
       isLoading.value = false;
@@ -329,11 +347,13 @@ class AddressController extends GetxController {
     } on AddressServiceException catch (e) {
       print('AddressController: Error deleting address: $e');
       addressErrorMessage.value = e.message;
+      _showToast(e.message, backgroundColor: Colors.red);
       return false;
     } catch (e) {
       print('AddressController: Unexpected error deleting address: $e');
       addressErrorMessage.value =
           'An unexpected error occurred while deleting address.';
+      _showToast(addressErrorMessage.value, backgroundColor: Colors.red);
       return false;
     } finally {
       isLoading.value = false;
@@ -388,7 +408,7 @@ class AddressController extends GetxController {
     Fluttertoast.showToast(
       msg: message,
       toastLength: Toast.LENGTH_SHORT,
-      gravity: ToastGravity.BOTTOM,
+      gravity: ToastGravity.TOP,
       timeInSecForIosWeb: 1,
       backgroundColor: backgroundColor ?? Colors.black,
       textColor: textColor ?? Colors.white,

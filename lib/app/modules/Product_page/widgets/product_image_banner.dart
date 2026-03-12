@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobiking/app/themes/app_theme.dart';
 import '../../home/widgets/favorite_toggle_button.dart';
 
@@ -64,42 +65,38 @@ class _ProductImageBannerState extends State<ProductImageBanner> {
                   padding: EdgeInsets.all(40),
                   color: AppColors.white,
                   child: imageUrl.isNotEmpty
-                      ? Image.network(
-                          imageUrl,
-                          fit: BoxFit
-                              .contain, // CHANGED FROM BoxFit.fill to BoxFit.contain
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Center(
-                              child: CircularProgressIndicator(
-                                color: AppColors.primaryPurple,
-                                strokeWidth: 2,
-                              ),
-                            );
-                          },
-                          errorBuilder: (context, url, error) => Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.broken_image,
-                                  size: 40,
-                                  color: AppColors.textLight.withOpacity(0.7),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Image Load Error',
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: AppColors.textLight.withOpacity(
-                                          0.7,
-                                        ),
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
+                       ? CachedNetworkImage(
+                           imageUrl: imageUrl,
+                           fit: BoxFit.contain,
+                           placeholder: (context, url) => Center(
+                             child: CircularProgressIndicator(
+                               color: AppColors.primaryPurple,
+                               strokeWidth: 2,
+                             ),
+                           ),
+                           errorWidget: (context, url, error) => Center(
+                             child: Column(
+                               mainAxisAlignment: MainAxisAlignment.center,
+                               children: [
+                                 Icon(
+                                   Icons.broken_image,
+                                   size: 40,
+                                   color: AppColors.textLight.withOpacity(0.7),
+                                 ),
+                                 const SizedBox(height: 8),
+                                 Text(
+                                   'Image Load Error',
+                                   style: Theme.of(context).textTheme.bodySmall
+                                       ?.copyWith(
+                                         color: AppColors.textLight.withOpacity(
+                                           0.7,
+                                         ),
+                                       ),
+                                 ),
+                               ],
+                             ),
+                           ),
+                         )
                       : Center(
                           child: Icon(
                             Icons.image_not_supported,
@@ -235,19 +232,30 @@ class _ProductImageBannerState extends State<ProductImageBanner> {
             top: 16,
             left: 16,
             child: SafeArea(
-              child: GestureDetector(
-                onTap: widget.onBack ?? () => Get.back(),
+              child: Material(
+                color: Colors.transparent,
                 child: Container(
-                  width: 32,
-                  height: 32,
+                  width: 44, // Larger container
+                  height: 44,
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.4),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.arrow_back_ios_new,
-                    size: 18,
-                    color: Colors.white,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () {
+                      debugPrint('🔙 ProductBanner: Back button tapped');
+                      if (widget.onBack != null) {
+                        widget.onBack!();
+                      } else {
+                        Navigator.maybePop(context);
+                      }
+                    },
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 20,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),

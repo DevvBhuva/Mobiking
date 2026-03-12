@@ -179,70 +179,56 @@ Future<void> _firebaseBackgroundMessagehandler(RemoteMessage message) async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ========== ANDROID 15 EDGE-TO-EDGE COMPATIBILITY ==========
-  // Step 1: Enable Edge-to-Edge Display
-  // This makes the system bars transparent, allowing the app to draw behind them.
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      systemNavigationBarColor: Colors.transparent,
-      statusBarIconBrightness:
-          Brightness.dark, // For dark icons on a light background
-      systemNavigationBarIconBrightness:
-          Brightness.dark, // For dark icons on a light background
-    ),
-  );
+  // 🚀 OPTIMIZATION: Start all basic initialization in parallel to save time
+  await Future.wait([
+    // Core Platform Settings
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]),
+    
+    // Modern UI Settings
+    Future.sync(() {
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          systemNavigationBarIconBrightness: Brightness.dark,
+        ),
+      );
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }),
 
-  // Step 2: Ensure the UI mode is set to edge-to-edge
-  // This is the modern way to handle system UI visibility.
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-  // =========================================================
-
-  // Set preferred orientations to portrait mode only
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
+    // Data Systems
+    GetStorage.init(),
+    _initializeHive(),
+    
+    // External Services
+    Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
   ]);
 
-  // --- Initialize Storage Systems ---
-  await GetStorage.init(); // Initialize GetStorage for local storage
-
-  // Initialize Hive for complex data caching
-  await _initializeHive();
-
-  // --- Firebase Initialization ---
-  // This must happen before you use any Firebase services like FCM.
-  // If you generated firebase_options.dart using FlutterFire CLI,
-  // uncomment the options line below and ensure you import 'firebase_options.dart'.
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-  // --- Core Services and Dependencies ---
-  final dioInstance = dio.Dio(); // Single Dio instance
-  final getStorageBox = GetStorage(); // Single GetStorage instance
-
-  // Put your FirebaseMessagingService into GetX dependency injection
-  // Initialize it immediately as it sets up listeners for FCM messages.
-  Get.put(FirebaseMessagingService());
-
-  // Register the background message handler
+  // Register background handler after Firebase is ready
   FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundMessagehandler);
 
-  // ✅ SERVICES: Put services into GetX dependency injection (ORDER MATTERS)
-  Get.put(UserService(dioInstance)); // Put UserService first
+  // --- Core Shared Instances ---
+  final dioInstance = dio.Dio();
+  final getStorageBox = GetStorage();
+
+  // ✅ DEPENDENCY INJECTION: Put core services
+  Get.put(FirebaseMessagingService());
+  Get.put(UserService(dioInstance));
   Get.put(LoginService(dioInstance, getStorageBox, Get.find<UserService>()));
-  // await Get.find<LoginService>().refreshTokenOnAppStart(); // Removed as refresh token logic is no longer used
   Get.put(OrderService());
   Get.put(AddressService(dioInstance, getStorageBox));
   Get.put(ConnectivityService());
   Get.put(SoundService());
   Get.put(QueryService());
   Get.put(AnalyticsService());
-
-  // ✅ ADD COUPON SERVICE: Initialize CouponService with Dio and GetStorage
   Get.put(CouponService(dioInstance, getStorageBox));
+  Get.put(CategoryService());
 
-  // ✅ CONTROLLERS: Put controllers into GetX dependency injection (ORDER MATTERS)
-  Get.put(CategoryController());
+  // ✅ CONTROLLERS: Parallelize controller initialization where possible
   Get.put(ConnectivityController());
   Get.put(FcmController());
   Get.put(AddressController());
@@ -250,18 +236,14 @@ Future<void> main() async {
   Get.put(ProductController());
   Get.put(CartController());
   Get.put(HomeController());
-
-  // ✅ ADD COUPON CONTROLLER: Initialize CouponController (depends on CouponService)
   Get.put(CouponController());
-
+  Get.put(CategoryController()); // Fixed: CategoryController depends on CategoryService
   Get.put(SubCategoryController());
   Get.put(WishlistController());
   Get.put(LoginController());
   Get.put(TabControllerGetX());
   Get.put(SystemUIController());
   Get.put(QueryGetXController());
-
-  // OrderController (depends on OrderService, CartController, AddressController)
   Get.put(OrderController());
   Get.put(BottomNavController());
 

@@ -12,20 +12,67 @@ class HomeShimmer extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. Shimmer for Search & Banner Area
-          _buildBannerShimmer(context),
+          const SizedBox(height: 16),
+          // 1. Shimmer for Title
+          _buildTitleShimmer(),
 
-          // 2. Shimmer for Category Tabs
+          // 2. Shimmer for Search Bar
+          _buildSearchBarShimmer(),
+
+          // 3. Shimmer for Category Tabs
           _buildCategoryTabsShimmer(),
 
-          // 3. Shimmer for Categories Section (Grid)
-          _buildGridShimmer(context, "Categories", 6),
+          // 4. Banner Shimmer (Equivalent to category.lowerBanner)
+          _buildBannerShimmer(context),
 
-          // 4. Shimmer for another section (Groups)
-          _buildGridShimmer(context, "Featured Products", 4),
+          const SizedBox(height: 8),
+
+          // 5. Shimmer for Group Sections
+          _buildGridShimmer(context, "Explore Collections", 3, childAspectRatio: 0.8),
+
+          const SizedBox(height: 16),
+
+          // 6. Shimmer for All Products grid
+          _buildGridShimmer(context, "All Products", 6, crossAxisCount: 3, childAspectRatio: 0.5),
 
           const SizedBox(height: 100), // Space for bottom bar
         ],
+      ),
+    );
+  }
+
+  Widget _buildTitleShimmer() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Shimmer.fromColors(
+        baseColor: Colors.grey[300]!,
+        highlightColor: Colors.grey[100]!,
+        child: Container(
+          width: 180,
+          height: 22,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBarShimmer() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: Shimmer.fromColors(
+        baseColor: Colors.grey[300]!,
+        highlightColor: Colors.grey[100]!,
+        child: Container(
+          height: 48,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
       ),
     );
   }
@@ -34,14 +81,14 @@ class HomeShimmer extends StatelessWidget {
     return Shimmer.fromColors(
       baseColor: Colors.grey[300]!,
       highlightColor: Colors.grey[100]!,
-      child: Container(
-        height: 200,
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            bottomLeft: Radius.circular(20),
-            bottomRight: Radius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Container(
+          height: 160,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
@@ -87,44 +134,58 @@ class HomeShimmer extends StatelessWidget {
     );
   }
 
-  Widget _buildGridShimmer(BuildContext context, String title, int itemCount) {
+  Widget _buildGridShimmer(BuildContext context, String title, int itemCount, {int crossAxisCount = 3, double childAspectRatio = 0.8}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
           child: Shimmer.fromColors(
             baseColor: Colors.grey[300]!,
             highlightColor: Colors.grey[100]!,
-            child: Container(
-              width: 150,
-              height: 24,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(4),
-              ),
+            child: Row(
+              children: [
+                Container(
+                  width: 120,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  width: 40,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 6),
           child: GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: itemCount,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 0.8,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              mainAxisSpacing: 4,
+              crossAxisSpacing: 4,
+              childAspectRatio: childAspectRatio,
             ),
             itemBuilder: (_, __) => Shimmer.fromColors(
               baseColor: Colors.grey[300]!,
               highlightColor: Colors.grey[100]!,
               child: Container(
+                margin: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
             ),

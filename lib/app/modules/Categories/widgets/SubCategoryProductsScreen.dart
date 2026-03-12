@@ -48,11 +48,16 @@ class _SubCategoryProductsScreenState extends State<SubCategoryProductsScreen> {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No products found.'));
           } else {
+            final activeProducts =
+                (snapshot.data ?? [])
+                    .where((p) => p.active == true)
+                    .toList();
+            if (activeProducts.isEmpty) {
+              return const Center(child: Text('No products found.'));
+            }
             return AllProductsGridView(
-              products: snapshot.data!,
+              products: activeProducts,
               showTitle: false,
             );
           }

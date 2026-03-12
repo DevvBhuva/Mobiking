@@ -3,16 +3,18 @@ import 'package:flutter/services.dart';
 import '../../../themes/app_theme.dart';
 
 class BillSection extends StatefulWidget {
-  final int itemTotal;
-  final int deliveryCharge;
-  final int couponDiscount; // ✅ NEW: Add coupon discount parameter
+  final double itemTotal;
+  final double deliveryCharge;
+  final double couponDiscount; // ✅ NEW: Add coupon discount parameter
+  final bool isCouponApplied; // ✅ NEW: Track if coupon is applied
   final TextEditingController gstNumberController; // Add this line
 
   const BillSection({
     Key? key,
     required this.itemTotal,
     required this.deliveryCharge,
-    this.couponDiscount = 0, // ✅ Default to 0
+    this.couponDiscount = 0.0, // ✅ Default to 0.0
+    this.isCouponApplied = false, // ✅ Default to false
     required this.gstNumberController, // Add this line
   }) : super(key: key);
 
@@ -308,18 +310,18 @@ class _BillSectionState extends State<BillSection> {
           Divider(color: AppColors.neutralBackground, thickness: 1),
           const SizedBox(height: 4),
 
-          _buildBillRow("Items total", widget.itemTotal.toDouble(), textTheme),
+          _buildBillRow("Items total", widget.itemTotal, textTheme),
           _buildBillRow(
             "Delivery charge",
-            widget.deliveryCharge.toDouble(),
+            widget.deliveryCharge,
             textTheme,
           ),
 
-          // ✅ Show coupon discount if applied
-          if (widget.couponDiscount > 0)
+          // ✅ Show coupon discount if applied AND discount is > 0
+          if (widget.isCouponApplied && widget.couponDiscount > 0)
             _buildBillRow(
               "Coupon discount",
-              widget.couponDiscount.toDouble(),
+              widget.couponDiscount,
               textTheme,
               isDiscount: true,
               itemTotal: widget.itemTotal,
@@ -334,8 +336,8 @@ class _BillSectionState extends State<BillSection> {
 
           _buildBillRow("Grand total", _total, textTheme, isBold: true),
 
-          // ✅ Show savings summary if coupon is applied
-          if (widget.couponDiscount > 0) ...[
+          // ✅ Show savings summary if coupon is applied AND discount is > 0
+          if (widget.isCouponApplied && widget.couponDiscount > 0) ...[
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.all(12),
@@ -377,7 +379,7 @@ class _BillSectionState extends State<BillSection> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "You're saving ₹${widget.couponDiscount} (${((widget.couponDiscount / widget.itemTotal) * 100).toStringAsFixed(0)}%)",
+                          "You're saving ₹${widget.couponDiscount.toStringAsFixed(2)} (${((widget.couponDiscount / widget.itemTotal) * 100).toStringAsFixed(2)}%)",
                           style: textTheme.labelMedium?.copyWith(
                             color: AppColors.success,
                             fontWeight: FontWeight.w700,
@@ -417,7 +419,7 @@ class _BillSectionState extends State<BillSection> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      "SAVED ${((widget.couponDiscount / widget.itemTotal) * 100).toStringAsFixed(0)}%",
+                      "SAVED ${((widget.couponDiscount / widget.itemTotal) * 100).toStringAsFixed(1)}%",
                       style: TextStyle(
                         color: AppColors.white,
                         fontSize: 10,
@@ -492,7 +494,7 @@ class _BillSectionState extends State<BillSection> {
     TextTheme textTheme, {
     bool isBold = false,
     bool isDiscount = false, // ✅ NEW: Add discount parameter
-    int? itemTotal,
+    double? itemTotal,
   }) {
     final TextStyle labelStyle =
         textTheme.bodyLarge?.copyWith(
@@ -516,7 +518,7 @@ class _BillSectionState extends State<BillSection> {
     String percentageSaved = '';
     if (isDiscount && itemTotal != null && itemTotal > 0) {
       final percentage = (value / itemTotal) * 100;
-      percentageSaved = ' (${percentage.toStringAsFixed(0)}%)';
+      percentageSaved = ' (${percentage.toStringAsFixed(2)}%)';
     }
 
     return Padding(
@@ -536,7 +538,7 @@ class _BillSectionState extends State<BillSection> {
           ),
           Text(
             isDiscount
-                ? "-₹${value.toStringAsFixed(0)}$percentageSaved" // ✅ Show minus for discount
+                ? "-₹${value.toStringAsFixed(2)}$percentageSaved" // ✅ Show minus for discount
                 : "₹${value.toStringAsFixed(2)}",
             style: valueStyle,
           ),

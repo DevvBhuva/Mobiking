@@ -18,6 +18,7 @@ import '../../widgets/CustomAppBar.dart';
 import '../../widgets/SearchTabSliverAppBar.dart' show SearchTabSliverAppBar;
 
 import 'package:mobiking/app/modules/home/widgets/HomeShimmer.dart';
+import 'package:mobiking/app/modules/home/widgets/_buildSectionView.dart';
 
 class HomeScreen extends StatefulWidget {
   HomeScreen({super.key});
@@ -26,7 +27,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin {
   final CategoryController categoryController = Get.find<CategoryController>();
   final SubCategoryController subCategoryController =
       Get.find<SubCategoryController>();
@@ -38,12 +39,17 @@ class _HomeScreenState extends State<HomeScreen> {
   final RxBool _showScrollToTopButton = false.obs;
 
   @override
+  bool get wantKeepAlive => true; // 🚀 Prevent lag when navigating back
+
+  @override
   void initState() {
     super.initState();
-    productController.refreshProducts();
-    categoryController.refreshCategories();
-    subCategoryController.refreshSubCategories();
-    homeController.refreshAllData();
+    // 🚀 OPTIMIZATION: Use on-demand loading that respects cache instead of force-refreshing every time
+    productController.loadProductsOnDemand();
+    categoryController.fetchCategories();
+    subCategoryController.loadSubCategories();
+    homeController.fetchHomeLayout();
+
     _scrollController = ScrollController();
     _scrollController.addListener(_scrollListener);
   }
@@ -102,47 +108,64 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
-      extendBodyBehindAppBar: false,
       backgroundColor: AppColors.neutralBackground,
-      appBar: null,
       body: Stack(
         children: [
           Obx(() {
             if (homeController.isLoading && homeController.homeData == null) {
               return const HomeShimmer();
             }
-            return RefreshIndicator(
-              onRefresh: _onRefresh,
-              color: AppColors.primaryPurple,
-              child: CustomScrollView(
-                controller: _scrollController,
-                slivers: [
-                  SearchTabSliverAppBar(
-                    onSearchChanged: (value) {
-                      print('Search query: $value');
-                    },
-                  ),
-                  SliverToBoxAdapter(child: CustomTabBarViewSection()),
-                  Obx(() {
-                    if (productController.isFetchingMore.value) {
-                      return const SliverToBoxAdapter(
-                        child: Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              color: AppColors.primaryPurple,
-                            ),
-                          ),
-                        ),
+            
+            final categories = homeController.categories;
+            
+            // ✅ Ensure TabController length matches categories length
+            if (categories.isNotEmpty) {
+              tabController.resetWithLength(categories.length);
+            }
+
+            return DefaultTabController(
+              length: categories.length,
+              child: ScrollConfiguration(
+                behavior: const ScrollBehavior().copyWith(overscroll: false),
+                child: NestedScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  controller: _scrollController,
+                  headerSliverBuilder: (context, innerBoxIsScrolled) {
+                    return [
+                      SearchTabSliverAppBar(
+                        onSearchChanged: (value) {}, 
+                      ),
+                    ];
+                  },
+                  body: TabBarView(
+                    physics: const NeverScrollableScrollPhysics(), // Disables swiping between tabs
+                    controller: tabController.controller, // FIXED: Correct property name
+                    children: List.generate(categories.length, (index) {
+                      final category = categories[index];
+                      final categoryId = category.id;
+                      final groups = homeController.categoryGroups[categoryId] ?? [];
+                      final isCategoryLoading = homeController.isCategoryLoading(categoryId);
+
+                      return ProductGridViewSection(
+                        key: ValueKey('tab_view_${category.id}'),
+                        productController: productController,
+                        index: index,
+                        groups: groups,
+                        bannerImageUrl: category.lowerBanner ?? '',
+                        categoryGridItems: subCategoryController.subCategories,
+                        subCategories: subCategoryController.subCategories,
+                        categoryId: categoryId,
+                        isLoading: isCategoryLoading,
                       );
-                    }
-                    return const SliverToBoxAdapter(child: SizedBox.shrink());
-                  }),
-                ],
+                    }),
+                  ),
+                ),
               ),
             );
           }),
+          // Scroll to top button
           Positioned(
             bottom: 20.0,
             right: 20.0,
@@ -155,10 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         mini: true,
                         backgroundColor: AppColors.darkPurple,
                         onPressed: _scrollToTop,
-                        child: const Icon(
-                          Icons.arrow_upward,
-                          color: Colors.white,
-                        ),
+                        child: const Icon(Icons.arrow_upward, color: Colors.white),
                       )
                     : const SizedBox.shrink(),
               ),

@@ -9,6 +9,7 @@ import '../controllers/tab_controller_getx.dart';
 import 'package:mobiking/app/controllers/home_controller.dart';
 import 'CategoryTab.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../utils/image_utils.dart';
 
 class SearchTabSliverAppBar extends StatefulWidget {
   final TextEditingController? searchController;
@@ -26,16 +27,18 @@ class SearchTabSliverAppBar extends StatefulWidget {
 
 class _SearchTabSliverAppBarState extends State<SearchTabSliverAppBar> {
   final List<String> _hintTexts = [
-    'Search "wireless earbuds"',
-    'Search "fast charging cable"',
-    'Search "power bank 20000mAh"',
-    'Search "mobile back cover"',
-    'Search "Bluetooth neckband"',
-    'Search "screen protector"',
-    'Search "MagSafe charger"',
-    'Search "phone holder for car"',
-    'Search "USB-C adapter"',
-    'Search "gaming earbuds"',
+    'Search "Wireless Power Bank"',
+    'Search "Calling Smartwatch"',
+    'Search "Portable Speaker"',
+    'Search "Wireless Gamepad"',
+    'Search "Earbuds Neckband"',
+    'Search "Charging Adapter"',
+    'Search "Wireless Keyboard"',
+    'Search "Wired Earphones"',
+    'Search "Gaming Mouse"',
+    'Search "Car Charger"',
+    'Search "Mobile Stand"',
+    'Search "Type-C Charging Cable"',
   ];
 
   late final RxInt _currentHintIndex;
@@ -93,7 +96,6 @@ class _StickySearchAndTabBarDelegate extends SliverPersistentHeaderDelegate {
   final TabControllerGetX tabController;
   final SubCategoryController subCategoryController;
   final HomeController homeController;
-
   _StickySearchAndTabBarDelegate({
     required this.searchController,
     required this.onSearchChanged,
@@ -124,78 +126,78 @@ class _StickySearchAndTabBarDelegate extends SliverPersistentHeaderDelegate {
       context,
     ).inputDecorationTheme.hintStyle;
 
-    String? backgroundImage;
-    final int selectedTabIndex = tabController.selectedIndex.value;
-    final homeLayout = homeController.homeData;
+    return Obx(() {
+      String? backgroundImage;
+      final int selectedTabIndex = tabController.selectedIndex.value;
+      final categories = homeController.categories;
 
-    if (homeLayout != null &&
-        homeLayout.categories.length > selectedTabIndex &&
-        homeLayout.categories[selectedTabIndex].upperBanner != null &&
-        homeLayout.categories[selectedTabIndex].upperBanner!.isNotEmpty) {
-      backgroundImage = homeLayout.categories[selectedTabIndex].upperBanner!;
-    }
+      if (categories.length > selectedTabIndex &&
+          categories[selectedTabIndex].upperBanner != null &&
+          categories[selectedTabIndex].upperBanner!.isNotEmpty) {
+        backgroundImage = getResizedImageUrl(
+          categories[selectedTabIndex].upperBanner!,
+          600,
+        );
+      }
 
-    return Container(
-      padding: const EdgeInsets.only(top: 4),
-      decoration: BoxDecoration(
-        color: isCollapsed ? Colors.black45 : null,
-        image: backgroundImage != null
-            ? DecorationImage(
-                image: CachedNetworkImageProvider(backgroundImage),
-                fit: BoxFit.cover,
-                colorFilter: isCollapsed
-                    ? const ColorFilter.mode(Colors.black45, BlendMode.darken)
-                    : null,
-              )
-            : null,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // --- Collapsible Title Section ---
-          SafeArea(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              height: (1.0 - animationProgress) * 50, // Shrinks from 50 to 0
-              child: Opacity(
-                opacity: 1.0 - animationProgress, // Fades out as it shrinks
-                child: const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
-                  child: Text(
-                    'Mobiking Wholesale',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.only(top: 4),
+        decoration: BoxDecoration(
+          color: AppColors.neutralBackground,
+          image: backgroundImage != null
+              ? DecorationImage(
+                  image: CachedNetworkImageProvider(backgroundImage),
+                  fit: BoxFit.cover,
+                )
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // --- Collapsible Title Section ---
+            SafeArea(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                height: (1.0 - animationProgress) * 50, // Shrinks from 50 to 0
+                child: Opacity(
+                  opacity: 1.0 - animationProgress, // Fades out as it shrinks
+                  child: const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: Text(
+                      'Mobiking Wholesale',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
 
-          // --- Search Bar (Always Visible) ---
-          Padding(
-            padding: EdgeInsets.only(left: 16, right: 16, top: 10.0),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: () => Get.to(() => const SearchPage()),
-              child: Container(
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.search,
-                      color: isCollapsed ? Colors.black : AppColors.textMedium,
-                    ),
-                    SizedBox(width: 8),
-                    Obx(() {
-                      return AnimatedSwitcher(
+            // --- Search Bar (Always Visible) ---
+            Padding(
+              padding: EdgeInsets.only(left: 16, right: 16, top: 10.0),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => Get.to(() => const SearchPage()),
+                child: Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.search,
+                        color: isCollapsed ? Colors.black : AppColors.textMedium,
+                      ),
+                      SizedBox(width: 8),
+                      AnimatedSwitcher(
                         duration: const Duration(milliseconds: 500),
                         transitionBuilder: (child, animation) {
                           final offsetAnimation = Tween<Offset>(
@@ -217,19 +219,19 @@ class _StickySearchAndTabBarDelegate extends SliverPersistentHeaderDelegate {
                           key: ValueKey<int>(currentHintIndex.value),
                           style: appThemeHintStyle,
                         ),
-                      );
-                    }),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 7),
-          // --- Category Tab Section (Always Visible) ---
-          CustomTabBarSection(),
-        ],
-      ),
-    );
+            const SizedBox(height: 7),
+            // --- Category Tab Section (Always Visible) ---
+            CustomTabBarSection(),
+          ],
+        ),
+      );
+    });
   }
 
   @override

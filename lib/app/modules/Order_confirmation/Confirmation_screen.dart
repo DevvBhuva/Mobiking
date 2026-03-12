@@ -76,7 +76,8 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
   void _navigateToMainScreen() {
     _cartController.clearCartData();
     Get.find<ProductController>().refreshProducts();
-    Get.offAll(() => MainContainerScreen());
+    // Navigate back to the home screen and clear the stack to prevent going back to checkout
+    Get.offAll(() => const MainContainerScreen());
   }
 
   String? _getOrderId() {
@@ -473,7 +474,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: _navigateToMainScreen,
+                onPressed: () => Get.back(),
               icon: const Icon(
                 Icons.shopping_cart_outlined,
                 color: Colors.white,
@@ -876,10 +877,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                NumberFormat.simpleCurrency(
-                  locale: 'en_IN',
-                  decimalDigits: 2,
-                ).format(item.price * item.quantity),
+                '₹${(item.price * item.quantity) % 1 == 0 ? (item.price * item.quantity).toInt().toString() : (item.price * item.quantity).toStringAsFixed(2)}',
                 style: textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
@@ -934,6 +932,13 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
       child: Column(
         children: [
           _buildSummaryRow(textTheme, "Subtotal", order.subtotal ?? 0.0),
+          if (order.couponCode != null && order.couponCode!.isNotEmpty)
+            _buildSummaryRow(
+              textTheme,
+              "Coupon Code",
+              0, // Value not used for text label
+              customValue: order.couponCode,
+            ),
           if (order.discount != null && order.discount! > 0)
             _buildSummaryRow(
               textTheme,
@@ -942,11 +947,6 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
               isDiscount: true,
             ),
           _buildSummaryRow(textTheme, "Delivery Fee", order.deliveryCharge),
-          _buildSummaryRow(
-            textTheme,
-            "GST",
-            double.tryParse(order.gst ?? '0.0') ?? 0.0,
-          ),
           Divider(color: AppColors.neutralBackground, height: 24),
           _buildSummaryRow(
             textTheme,
@@ -965,18 +965,19 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
     double value, {
     bool isTotal = false,
     bool isDiscount = false,
+    String? customValue,
   }) {
-    final formattedValue = NumberFormat.simpleCurrency(
-      locale: 'en_IN',
-      decimalDigits: 2,
-    ).format(value);
+    final String formattedValue = customValue ??
+        "₹${value % 1 == 0 ? value.toInt().toString() : value.toStringAsFixed(2)}";
     final titleStyle = textTheme.bodyMedium?.copyWith(
       fontWeight: isTotal ? FontWeight.w700 : FontWeight.w500,
       color: isTotal ? AppColors.textDark : AppColors.textMedium,
     );
     final valueStyle = textTheme.bodyMedium?.copyWith(
       fontWeight: FontWeight.w700,
-      color: isDiscount ? AppColors.danger : AppColors.textDark,
+      color: customValue != null
+          ? AppColors.success
+          : (isDiscount ? AppColors.danger : AppColors.textDark),
     );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),

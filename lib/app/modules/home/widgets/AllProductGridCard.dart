@@ -266,12 +266,13 @@ class AllProductGridCard extends StatelessWidget {
     const double addBtnFixedWidth = 50.0;
     const double buttonHeight = 24.0;
 
-    return Card(
-      elevation: 0,
-      color: Colors.transparent,
-      margin: EdgeInsets.all(4.0), // Reduced margin
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      clipBehavior: Clip.antiAlias,
+    return RepaintBoundary(
+      child: Card(
+        elevation: 0,
+        color: Colors.transparent,
+        margin: const EdgeInsets.all(4.0),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        clipBehavior: Clip.antiAlias,
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.white,
@@ -316,12 +317,8 @@ class AllProductGridCard extends StatelessWidget {
                                       200,
                                     ),
                                     fit: BoxFit.contain,
-                                    placeholder: (context, url) => Center(
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: AppColors.primaryPurple
-                                            .withOpacity(0.5),
-                                      ),
+                                    placeholder: (context, url) => Container(
+                                      color: AppColors.neutralBackground,
                                     ),
                                     errorWidget: (context, url, error) =>
                                         Center(
@@ -412,17 +409,6 @@ class AllProductGridCard extends StatelessWidget {
                             .where((entry) => entry.value > 0)
                             .length;
 
-                        print('AllProductGridCard: Product ID: ${product.id}');
-                        print(
-                          'AllProductGridCard: totalProductQuantityInCart: $totalProductQuantityInCart',
-                        );
-                        print(
-                          'AllProductGridCard: product.variants.entries: ${product.variants.entries}',
-                        );
-                        print(
-                          'AllProductGridCard: productVariantQuantities: $variantQuantities',
-                        );
-
                         if (totalProductQuantityInCart > 0) {
                           return _buildQuantitySelectorButton(
                             totalProductQuantityInCart,
@@ -463,6 +449,38 @@ class AllProductGridCard extends StatelessWidget {
                         }
                       }),
                     ),
+                    // ✅ NEW: Out of Stock Overlay
+                    if (product.totalStock <= 0 && !product.variants.values.any((v) => v > 0))
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.4),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade800.withOpacity(0.9),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.white24),
+                              ),
+                              child: Text(
+                                'OUT OF STOCK',
+                                style: textTheme.labelSmall?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 10,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -567,8 +585,9 @@ class AllProductGridCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _AnimatedQuantityText extends StatefulWidget {

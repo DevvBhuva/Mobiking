@@ -115,8 +115,10 @@ class _AllProductsGridViewState extends State<AllProductsGridView>
       return _cachedFilteredProducts!;
     }
 
-    // Create a copy and sort by stock status
-    final sortedProducts = List<ProductModel>.from(widget.products);
+    // Create a copy, filter active only (ignore stock status for filtering), and sort
+    final sortedProducts = List<ProductModel>.from(widget.products)
+        .where((p) => p.active == true)
+        .toList();
 
     sortedProducts.sort((a, b) {
       bool aInStock = a.totalStock > 0 || a.variants.values.any((v) => v > 0);
@@ -241,53 +243,10 @@ class _AllProductsGridViewState extends State<AllProductsGridView>
               transition: Transition.fadeIn,
               duration: const Duration(milliseconds: 200),
             ),
-            child: _buildProductCard(product, isOutOfStock, heroTag, textTheme),
+            child: AllProductGridCard(product: product, heroTag: heroTag),
           ),
         );
       },
-    );
-  }
-
-  Widget _buildProductCard(
-    ProductModel product,
-    bool isOutOfStock,
-    String heroTag,
-    TextTheme textTheme,
-  ) {
-    return Stack(
-      children: [
-        AllProductGridCard(product: product, heroTag: heroTag),
-
-        if (isOutOfStock)
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade600,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    'Out of Stock',
-                    style: textTheme.labelSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 10,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
     );
   }
 

@@ -68,17 +68,33 @@ class _MainContainerScreenState extends State<MainContainerScreen>
     final double bottomSafeAreaPadding = MediaQuery.of(context).padding.bottom;
     final double totalCustomBottomBarHeight = customBottomBarContentHeight;
 
-    return Theme(
-      data: AppTheme.lightTheme,
-      child: Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: Obx(
-          () => IndexedStack(
-            index: navController.selectedIndex.value,
-            children: navController.pages,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        if (navController.selectedIndex.value != 0) {
+          navController.changeTabIndex(0);
+        } else {
+          // If already on Home tab, allow the app to be minimized or closed
+          // Since canPop is false, we manually handle exit if needed, 
+          // but for now, we'll just allow standard behavior if they press back again on Home.
+          // Note: In Flutter 3.16+, you might need to handle this differently, 
+          // but usually you want to set canPop to true if on Home.
+          // Let's refine the logic:
+          SystemNavigator.pop();
+        }
+      },
+      child: Theme(
+        data: AppTheme.lightTheme,
+        child: Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: Obx(
+            () => IndexedStack(
+              index: navController.selectedIndex.value,
+              children: navController.pages,
+            ),
           ),
-        ),
-        bottomNavigationBar: const CustomBottomBar(),
+          bottomNavigationBar: const CustomBottomBar(),
         floatingActionButton: Obx(() {
           if (!navController.isFabVisible.value) {
             return const SizedBox.shrink();
@@ -140,6 +156,7 @@ class _MainContainerScreenState extends State<MainContainerScreen>
           );
         }),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+        ),
       ),
     );
   }

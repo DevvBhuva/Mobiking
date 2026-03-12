@@ -8,14 +8,14 @@ class WishlistCard extends StatelessWidget {
   final ProductModel product;
   final VoidCallback onRemove;
   final VoidCallback? onTap; // Optional: for making the card itself tappable
-  final VoidCallback? onAddToCart; // Added: for Add to Cart functionality
+  final bool isProcessing; // Added: for loading state
 
   const WishlistCard({
     super.key,
     required this.product,
     required this.onRemove,
     this.onTap,
-    this.onAddToCart, // Initialize the new callback
+    this.isProcessing = false, // Initialize the new flag
   });
 
   @override
@@ -130,7 +130,7 @@ class WishlistCard extends StatelessWidget {
                             // Larger and bolder for main price
                             fontWeight: FontWeight.w600,
                             color: AppColors
-                                .primaryGreen, // Discounted/Current price in Blinkit green
+                                .success, // Discounted/Current price in Blinkit green
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -153,16 +153,24 @@ class WishlistCard extends StatelessWidget {
                     const SizedBox(height: 12), // Space before action buttons
                     // --- Actions: Remove and Add to Cart ---
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         // Remove Button (leading edge)
                         TextButton.icon(
-                          onPressed: onRemove,
-                          icon: Icon(
-                            Icons.close_rounded,
-                            color: AppColors.textMedium,
-                            size: 20,
-                          ), // Clear 'X' icon for remove
+                          onPressed: isProcessing ? null : onRemove,
+                          icon: isProcessing
+                              ? SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.textMedium,
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.close_rounded,
+                                  color: AppColors.textMedium,
+                                  size: 20,
+                                ),
                           label: Text(
                             'Remove',
                             style: textTheme.labelSmall?.copyWith(
@@ -178,35 +186,6 @@ class WishlistCard extends StatelessWidget {
                                 AppColors.textMedium, // Ripple color
                           ),
                         ),
-                        // Add to Cart Button (trailing edge)
-                        if (onAddToCart != null)
-                          SizedBox(
-                            height: 36, // Fixed height for button
-                            child: ElevatedButton(
-                              onPressed: onAddToCart,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primaryGreen,
-                                foregroundColor: AppColors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    8,
-                                  ), // Slightly rounded corners
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ), // Horizontal padding
-                                elevation: 2, // Subtle elevation
-                              ),
-                              child: Text(
-                                'Add', // Simple "Add" text
-                                style: textTheme.labelMedium?.copyWith(
-                                  // labelLarge for button text
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.white,
-                                ),
-                              ),
-                            ),
-                          ),
                       ],
                     ),
                   ],

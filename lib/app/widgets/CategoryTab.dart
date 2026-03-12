@@ -12,6 +12,11 @@ import '../data/Home_model.dart';
 import '../modules/home/widgets/_buildSectionView.dart';
 import 'package:shimmer/shimmer.dart';
 import '../themes/app_theme.dart';
+import '../modules/home/loading/ShimmerBanner.dart';
+import '../modules/home/loading/ShimmerGroupSection.dart';
+import '../modules/home/loading/ShimmerProductGrid.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../utils/image_utils.dart';
 
 class CustomTabBarSection extends StatefulWidget {
   CustomTabBarSection({super.key});
@@ -97,9 +102,7 @@ class _CustomTabBarSectionState extends State<CustomTabBarSection> {
       if (tabRenderBox != null &&
           scrollViewRenderBox != null &&
           stackRenderBox != null) {
-        debugPrint(
-          'CustomTabBarSection: _updateIndicatorPosition - selectedIndex: $selectedIndex, tabRenderBox: $tabRenderBox, scrollViewRenderBox: $scrollViewRenderBox, stackRenderBox: $stackRenderBox',
-        );
+        // Removed debugPrint for performance
         // Calculate indicator position relative to the Stack
         final double tabGlobalX = tabRenderBox.localToGlobal(Offset.zero).dx;
         final double stackGlobalX = stackRenderBox
@@ -141,9 +144,7 @@ class _CustomTabBarSectionState extends State<CustomTabBarSection> {
           );
         }
       } else {
-        debugPrint(
-          'CustomTabBarSection: _updateIndicatorPosition - RenderBox is null. tabRenderBox: $tabRenderBox, scrollViewRenderBox: $scrollViewRenderBox, stackRenderBox: $stackRenderBox',
-        );
+        // Removed debugPrint
       }
     }
   }
@@ -219,8 +220,7 @@ class _CustomTabBarSectionState extends State<CustomTabBarSection> {
     final TextTheme textTheme = Theme.of(context).textTheme;
 
     return Obx(() {
-      final HomeLayoutModel? homeLayout = homeController.homeData;
-      final List<CategoryModel> categories = homeLayout?.categories ?? [];
+      final List<CategoryModel> categories = homeController.categories;
 
       if (homeController.isLoading && categories.isEmpty) {
         return SizedBox(
@@ -321,103 +321,4 @@ class _CustomTabBarSectionState extends State<CustomTabBarSection> {
   }
 }
 
-class CustomTabBarViewSection extends StatelessWidget {
-  final TabControllerGetX controller = Get.find<TabControllerGetX>();
-  final HomeController homeController = Get.find<HomeController>();
-  final SubCategoryController subCategoryController =
-      Get.find<SubCategoryController>();
-  final ProductController productController = Get.find<ProductController>();
-  final CategoryController categoryController = Get.find<CategoryController>();
-
-  CustomTabBarViewSection({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final HomeLayoutModel? homeLayout = homeController.homeData;
-      final List<CategoryModel> categories = homeLayout?.categories ?? [];
-      final selectedIndex = controller.selectedIndex.value;
-
-      // Initial Loading State
-      if (homeController.isLoading && categories.isEmpty) {
-        return ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: 2,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          itemBuilder: (_, __) => Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Shimmer.fromColors(
-                  baseColor: Colors.grey[300]!,
-                  highlightColor: Colors.grey[100]!,
-                  child: Container(
-                    width: 150,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: 3,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 0.8,
-                  ),
-                  itemBuilder: (_, __) => Shimmer.fromColors(
-                    baseColor: Colors.grey[300]!,
-                    highlightColor: Colors.grey[100]!,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }
-
-      // IndexedStack for Cached Tab Views
-      return IndexedStack(
-        index: selectedIndex,
-        children: List.generate(categories.length, (index) {
-          final category = categories[index];
-          final categoryId = category.id;
-
-          // ✅ Reset and fetch products when category changes
-
-          final updatedGroups = homeController.categoryGroups[categoryId] ?? [];
-          final String bannerImageUrlToUse = category.lowerBanner ?? '';
-
-          return Offstage(
-            offstage: selectedIndex != index,
-            child: TickerMode(
-              enabled: selectedIndex == index,
-              child: buildSectionView(
-                productController: productController,
-                index: index,
-                groups: updatedGroups,
-                bannerImageUrl: bannerImageUrlToUse,
-                categoryGridItems: subCategoryController.subCategories,
-                subCategories: subCategoryController.subCategories,
-              ),
-            ),
-          );
-        }),
-      );
-    });
-  }
-}
+// CustomTabBarViewSection was removed because it was replaced by a high-performance TabBarView in NestedScrollView inside home_screen.dart

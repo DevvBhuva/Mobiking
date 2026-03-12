@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:ui';
+import 'package:cached_network_image/cached_network_image.dart';
 
 // Assuming AppColors is defined in this path or accessible globally
 import 'package:mobiking/app/themes/app_theme.dart';
@@ -224,64 +225,55 @@ class _FloatingCartButtonState extends State<FloatingCartButton>
                   SizedBox(
                     width: stackWidth,
                     height: imageSize,
-                    child: Stack(
-                      children: effectiveImageUrls.asMap().entries.map((entry) {
-                        // Use effectiveImageUrls here
-                        int index = entry.key;
-                        String url = entry.value;
-
-                        // Ensure we don't go out of bounds for animations lists
-                        final slideAnim = index < _imageSlideAnimations.length
-                            ? _imageSlideAnimations[index]
-                            : const AlwaysStoppedAnimation(Offset.zero);
-                        final scaleAnim = index < _imageScaleAnimations.length
-                            ? _imageScaleAnimations[index]
-                            : const AlwaysStoppedAnimation(1.0);
-
-                        return Positioned(
-                          left: index * imageOverlap, // Control overlap
-                          child: SlideTransition(
-                            position: slideAnim,
-                            child: ScaleTransition(
-                              scale: scaleAnim,
-                              child: Container(
-                                // Using Container for more control over border
-                                width: imageSize,
-                                height: imageSize,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors
-                                      .grey[800], // Background color while loading/error
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2.0,
-                                  ), // White border around images
-                                  image: DecorationImage(
-                                    image: NetworkImage(url),
-                                    fit: BoxFit.cover,
-                                    // Add error handling for NetworkImage
-                                    onError: (exception, stackTrace) {
-                                      print(
-                                        'Error loading image: $url, $exception',
-                                      );
-                                    },
+                    child: RepaintBoundary(
+                      child: Stack(
+                        children: effectiveImageUrls.asMap().entries.map((entry) {
+                          int index = entry.key;
+                          String url = entry.value;
+                          final slideAnim = index < _imageSlideAnimations.length
+                              ? _imageSlideAnimations[index]
+                              : const AlwaysStoppedAnimation(Offset.zero);
+                          final scaleAnim = index < _imageScaleAnimations.length
+                              ? _imageScaleAnimations[index]
+                              : const AlwaysStoppedAnimation(1.0);
+                          return Positioned(
+                            left: index * imageOverlap,
+                            child: SlideTransition(
+                              position: slideAnim,
+                              child: ScaleTransition(
+                                scale: scaleAnim,
+                                child: Container(
+                                  width: imageSize,
+                                  height: imageSize,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.grey[800],
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2.0,
+                                    ),
+                                    image: url.isNotEmpty && url.startsWith('http')
+                                        ? DecorationImage(
+                                            image: CachedNetworkImageProvider(url),
+                                            fit: BoxFit.cover,
+                                          )
+                                        : null,
                                   ),
+                                  child: (url.isEmpty || !url.startsWith('http'))
+                                      ? const Center(
+                                          child: Icon(
+                                            Icons.image_not_supported,
+                                            color: Colors.white,
+                                            size: 20,
+                                          ),
+                                        )
+                                      : null,
                                 ),
-                                // Fallback for error or while loading (e.g., an icon)
-                                child: (url.isEmpty || !url.startsWith('http'))
-                                    ? const Center(
-                                        child: Icon(
-                                          Icons.image_not_supported,
-                                          color: Colors.white,
-                                          size: 20,
-                                        ),
-                                      )
-                                    : null,
                               ),
                             ),
-                          ),
-                        );
-                      }).toList(),
+                          );
+                        }).toList(),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12), // Spacing between images and text

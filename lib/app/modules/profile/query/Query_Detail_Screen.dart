@@ -8,6 +8,7 @@ import 'package:mobiking/app/themes/app_theme.dart';
 import '../../../data/QueryModel.dart';
 import '../../../data/order_model.dart';
 import 'OptimizedMessageInput.dart';
+import 'Raise_query.dart';
 
 class QueryDetailScreen extends StatefulWidget {
   final OrderModel? order;
@@ -128,15 +129,7 @@ class _QueryDetailScreenState extends State<QueryDetailScreen> {
           return _buildNoQueryView(textTheme);
         }
 
-        final initialMessage = ReplyModel(
-          userId: liveQuery.userEmail,
-          replyText: liveQuery.message,
-          timestamp: liveQuery.raisedAt ?? liveQuery.createdAt,
-          isAdmin: false,
-        );
-
         final List<dynamic> fullConversation = [
-          initialMessage,
           ...liveQuery.replies,
         ];
         fullConversation.sort((a, b) {
@@ -390,55 +383,11 @@ class _QueryDetailScreenState extends State<QueryDetailScreen> {
   }
 
   void _showCreateQueryDialog() {
-    final titleController = TextEditingController();
-    final messageController = TextEditingController();
-
+    if (widget.order == null) return;
     Get.dialog(
-      AlertDialog(
-        title: const Text('Create Query'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: titleController,
-              decoration: const InputDecoration(
-                labelText: 'Query Title',
-                border: OutlineInputBorder(),
-              ),
-              autocorrect: false,
-              enableSuggestions: false,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: messageController,
-              decoration: const InputDecoration(
-                labelText: 'Message',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
-              autocorrect: false,
-              enableSuggestions: false,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              if (titleController.text.trim().isNotEmpty &&
-                  messageController.text.trim().isNotEmpty) {
-                final controller = Get.find<QueryGetXController>();
-                Get.back();
-                await controller.raiseQuery(
-                  title: titleController.text.trim(),
-                  message: messageController.text.trim(),
-                  orderId: widget.order?.id,
-                );
-              }
-            },
-            child: const Text('Create'),
-          ),
-        ],
+      RaiseQueryDialog(
+        orderId: widget.order!.id,
+        displayOrderId: widget.order!.orderId,
       ),
     );
   }

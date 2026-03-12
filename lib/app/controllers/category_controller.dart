@@ -21,6 +21,7 @@ class CategoryController extends GetxController {
 
   /// Fetch categories with Hive caching support
   Future<void> fetchCategories({bool forceRefresh = false}) async {
+    if (isLoading.value) return; // 🚀 Guard against duplicate requests
     try {
       if (categories.isEmpty) {
         isLoading.value = true;

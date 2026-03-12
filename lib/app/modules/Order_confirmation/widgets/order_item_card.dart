@@ -86,7 +86,7 @@ class OrderItemCard extends StatelessWidget {
                   const SizedBox(height: 2),
 
                   Text(
-                    "Qty: ${item.quantity} × ${NumberFormat.simpleCurrency(locale: 'en_IN').format(item.price)}",
+                    "Qty: ${item.quantity} × ₹${item.price % 1 == 0 ? item.price.toInt().toString() : item.price.toStringAsFixed(2)}",
                     style: textTheme.bodySmall?.copyWith(
                       fontSize: 11.5,
                       color: AppColors.textMedium,
@@ -98,7 +98,7 @@ class OrderItemCard extends StatelessWidget {
 
             // Total Price
             Text(
-              NumberFormat.simpleCurrency(locale: 'en_IN').format(itemTotal),
+              "₹${itemTotal % 1 == 0 ? itemTotal.toInt().toString() : itemTotal.toStringAsFixed(2)}",
               style: textTheme.bodyMedium?.copyWith(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,

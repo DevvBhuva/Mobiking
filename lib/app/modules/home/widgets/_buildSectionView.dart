@@ -28,6 +28,7 @@ class ProductGridViewSection extends StatefulWidget {
   final int index;
   final ProductController productController;
   final String? categoryId;
+  final bool isLoading; // 🚀 New: Category-level loading
 
   const ProductGridViewSection({
     super.key,
@@ -38,72 +39,44 @@ class ProductGridViewSection extends StatefulWidget {
     required this.index,
     required this.productController,
     this.categoryId,
+    this.isLoading = false, // 🚀 Default to false
   });
 
   @override
   State<ProductGridViewSection> createState() => _ProductGridViewSectionState();
 }
 
-class _ProductGridViewSectionState extends State<ProductGridViewSection> {
-  late ScrollController _scrollController;
+class _ProductGridViewSectionState extends State<ProductGridViewSection> with AutomaticKeepAliveClientMixin {
   bool _isLoadingTriggered = false;
   double _lastScrollPosition = 0.0;
   bool _isScrollingUp = false;
 
   @override
+  bool get wantKeepAlive => true; // 🚀 Keep this section's state (scroll, widgets) alive
+
+  @override
   void initState() {
     super.initState();
-    _scrollController = ScrollController();
-    _scrollController.addListener(_onScroll);
+    // ✅ No local ScrollController needed for NestedScrollView coordination
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
     super.dispose();
   }
 
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
-
-    final maxScroll = _scrollController.position.maxScrollExtent;
-    final currentScroll = _scrollController.position.pixels;
-
-    // ✅ Detect scroll direction
-    _isScrollingUp = currentScroll > _lastScrollPosition;
-    _lastScrollPosition = currentScroll;
-
-    print(
-      "📍 Scroll: ${currentScroll.toStringAsFixed(1)} / ${maxScroll.toStringAsFixed(1)} (${(currentScroll / maxScroll * 100).toStringAsFixed(1)}%)",
-    );
-    print("🔄 Scrolling ${_isScrollingUp ? 'UP' : 'DOWN'}");
-
-    // ✅ Reset loading trigger when user scrolls back significantly
-    if (currentScroll < maxScroll * 0.6) {
-      _isLoadingTriggered = false;
-    }
-
-    // ✅ Enhanced trigger condition: 75% scroll + scrolling up + user gesture
-    if (currentScroll >= maxScroll * 0.5 && _isScrollingUp) {
-      _triggerLoadMore();
-    }
-  }
+  // _onScroll removed as coordination is handled by NestedScrollView
 
   void _triggerLoadMore() {
     // ✅ Enhanced conditions for better UX
     if (_isLoadingTriggered ||
         widget.productController.isFetchingMore.value ||
-        !widget.productController.hasMoreProducts.value ||
-        !_isScrollingUp) {
-      // Only trigger when scrolling up
+        !widget.productController.hasMoreProducts.value) {
       return;
     }
 
     _isLoadingTriggered = true;
-    print(
-      "🚀 Infinite scroll triggered at 75% - User swiped up for category: ${widget.categoryId}",
-    );
+    // Removed print
 
     // ✅ Add a small delay to ensure smooth UX
     Future.delayed(const Duration(milliseconds: 100), () {
@@ -238,38 +211,15 @@ class _ProductGridViewSectionState extends State<ProductGridViewSection> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // 🚀 Required for AutomaticKeepAlive
     final TextTheme textTheme = Theme.of(context).textTheme;
 
-    return NotificationListener<ScrollNotification>(
-      onNotification: (ScrollNotification notification) {
-        // ✅ Additional scroll detection for better responsiveness
-        if (notification is ScrollUpdateNotification) {
-          final ScrollMetrics metrics = notification.metrics;
-          final double scrollPercentage =
-              metrics.pixels / metrics.maxScrollExtent;
-
-          // ✅ Trigger at 75% with smooth detection
-          if (scrollPercentage >= 0.5 &&
-              notification.scrollDelta! >
-                  0 && // Positive delta = scrolling down/up
-              !_isLoadingTriggered &&
-              widget.productController.hasMoreProducts.value &&
-              !widget.productController.isFetchingMore.value) {
-            print(
-              "🎯 ScrollNotification triggered at ${(scrollPercentage * 100).toStringAsFixed(1)}%",
-            );
-            _triggerLoadMore();
-          }
-        }
-        return false; // Allow the notification to continue
-      },
-      child: SingleChildScrollView(
-        controller: _scrollController,
-        physics: const BouncingScrollPhysics(), // ✅ Better scroll feel
+    // 🚀 NEW: Improved loading state handling to prevent white flashes
+    if (widget.isLoading && widget.groups.isEmpty) {
+      return SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Banner Section
             if (widget.bannerImageUrl.isNotEmpty)
               ClipRRect(
                 borderRadius: const BorderRadius.only(
@@ -282,10 +232,79 @@ class _ProductGridViewSectionState extends State<ProductGridViewSection> {
                   child: CachedNetworkImage(
                     imageUrl: getResizedImageUrl(widget.bannerImageUrl, 600),
                     fit: BoxFit.cover,
-                    placeholder: (context, url) => const ShimmerBanner(
-                      width: double.infinity,
+                  ),
+                ),
+              )
+            else
+              const ShimmerBanner(
+                width: double.infinity,
+                height: 160,
+                borderRadius: 12,
+              ),
+            const SizedBox(height: 8),
+            const ShimmerGroupSection(),
+            const ShimmerProductGrid(),
+          ],
+        ),
+      );
+    }
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (ScrollNotification notification) {
+        if (notification is ScrollUpdateNotification) {
+          final ScrollMetrics metrics = notification.metrics;
+          final double scrollPercentage =
+              metrics.pixels / metrics.maxScrollExtent;
+
+          // ✅ Detect direction from delta
+          _isScrollingUp = notification.scrollDelta! > 0;
+
+          // ✅ Trigger at 50% with smooth detection
+          if (scrollPercentage >= 0.5 &&
+              _isScrollingUp &&
+              !_isLoadingTriggered &&
+              widget.productController.hasMoreProducts.value &&
+              !widget.productController.isFetchingMore.value) {
+            _triggerLoadMore();
+          }
+        }
+        return false;
+      },
+      child: CustomScrollView(
+        key: PageStorageKey<String>('tab_scroll_view_${widget.index}'),
+        // controller: _scrollController, // ✅ Removed to sync with outer NestedScrollView
+        physics: const ClampingScrollPhysics(),
+        slivers: [
+          // Banner Section
+          if (widget.bannerImageUrl.isNotEmpty)
+            SliverToBoxAdapter(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
+                ),
+                child: SizedBox(
+                  height: 160,
+                  width: double.infinity,
+                  child: CachedNetworkImage(
+                    imageUrl: getResizedImageUrl(widget.bannerImageUrl, 600),
+                    fit: BoxFit.cover,
+                    // Use a very fast fade for a more professional feel
+                    fadeInDuration: const Duration(milliseconds: 200),
+                    placeholder: (context, url) => Container(
                       height: 160,
-                      borderRadius: 12,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: AppColors.neutralBackground,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Center(
+                        child: ShimmerBanner(
+                          width: double.infinity,
+                          height: 160,
+                          borderRadius: 12,
+                        ),
+                      ),
                     ),
                     errorWidget: (context, url, error) => Container(
                       color: AppColors.neutralBackground,
@@ -299,48 +318,51 @@ class _ProductGridViewSectionState extends State<ProductGridViewSection> {
                   ),
                 ),
               ),
+            ),
 
-            const SizedBox(height: 8),
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
-            // Group Sections (if available)
-            if (widget.groups.isNotEmpty)
-              GroupWithProductsSection(groups: widget.groups),
+          // Group Sections (if available)
+          if (widget.groups.isNotEmpty)
+            SliverToBoxAdapter(
+              child: GroupWithProductsSection(groups: widget.groups),
+            ),
 
-            // ✅ Integrated Products Grid Section
-            Obx(() {
-              final products = widget.productController.allProducts;
-              final isLoading = widget.productController.isLoading.value;
-              final isLoadingMore =
-                  widget.productController.isFetchingMore.value;
-              final hasMoreProducts =
-                  widget.productController.hasMoreProducts.value;
+          // ✅ Integrated Products Grid Section
+          Obx(() {
+            final products = widget.productController.allProducts;
+            final isLoading = widget.productController.isLoading.value;
+            final isLoadingMore =
+                widget.productController.isFetchingMore.value;
+            final hasMoreProducts =
+                widget.productController.hasMoreProducts.value;
 
-              if (isLoading && products.isEmpty) {
-                return _buildInitialLoadingState();
-              } else if (products.isEmpty && !isLoading) {
-                return const SizedBox(
-                  height: 300,
-                  child: Center(
-                    child: Text(
-                      'We couldn\'t find any items at the moment.\n'
-                      'Please check back later.',
-                      textAlign: TextAlign.center,
-                    ),
+            if (isLoading && products.isEmpty) {
+              return SliverToBoxAdapter(child: _buildInitialLoadingState());
+            } else if (products.isEmpty && !isLoading) {
+              return const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Text(
+                    'We couldn\'t find any items at the moment.\n'
+                    'Please check back later.',
+                    textAlign: TextAlign.center,
                   ),
-                );
-              } else {
-                // Filter in-stock products
-                final inStockProducts = _getOptimizedInStockProducts(products);
+                ),
+              );
+            } else {
+              // Filter in-stock products
+              final inStockProducts = _getOptimizedInStockProducts(products);
 
-                if (inStockProducts.isEmpty && !isLoadingMore) {
-                  return _buildEmptyState(context, textTheme);
-                }
+              if (inStockProducts.isEmpty && !isLoadingMore) {
+                return SliverToBoxAdapter(child: _buildEmptyState(context, textTheme));
+              }
 
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title Section with scroll progress indicator
-                    Padding(
+              return SliverMainAxisGroup(
+                slivers: [
+                  // Title Section with scroll progress indicator
+                  SliverToBoxAdapter(
+                    child: Padding(
                       padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
                       child: Row(
                         children: [
@@ -371,73 +393,24 @@ class _ProductGridViewSectionState extends State<ProductGridViewSection> {
                             ),
                           ),
                           const Spacer(),
-                          // ✅ Add scroll hint when near trigger point
-                          if (hasMoreProducts && !isLoadingMore)
-                            AnimatedBuilder(
-                              animation: _scrollController,
-                              builder: (context, child) {
-                                if (!_scrollController.hasClients)
-                                  return const SizedBox.shrink();
-
-                                final progress =
-                                    _scrollController.position.pixels /
-                                    _scrollController.position.maxScrollExtent;
-
-                                if (progress >= 0.6 && progress < 0.75) {
-                                  return Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.accentNeon.withOpacity(
-                                        0.1,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.keyboard_arrow_up,
-                                          size: 12,
-                                          color: AppColors.accentNeon,
-                                        ),
-                                        Text(
-                                          'Swipe up',
-                                          style: textTheme.labelSmall?.copyWith(
-                                            color: AppColors.accentNeon,
-                                            fontSize: 10,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }
-                                return const SizedBox.shrink();
-                              },
-                            ),
                         ],
                       ),
                     ),
+                  ),
 
-                    // ✅ Products Grid
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2.0),
-                      child: GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        padding: const EdgeInsets.all(8.0),
-                        itemCount:
-                            inStockProducts.length + (isLoadingMore ? 3 : 0),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 3,
-                              mainAxisSpacing: 0,
-                              crossAxisSpacing: 0,
-                              childAspectRatio: 0.5,
-                            ),
-                        itemBuilder: (context, index) {
+                  // ✅ Products Grid optimized with RepaintBoundary and better builder settings
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    sliver: SliverGrid(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            mainAxisSpacing: 0,
+                            crossAxisSpacing: 0,
+                            childAspectRatio: 0.5,
+                          ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
                           // Show loading shimmer
                           if (index >= inStockProducts.length) {
                             return _buildShimmerCard();
@@ -457,12 +430,16 @@ class _ProductGridViewSectionState extends State<ProductGridViewSection> {
                             ),
                           );
                         },
+                        childCount:
+                            inStockProducts.length + (isLoadingMore ? 3 : 0),
                       ),
                     ),
+                  ),
 
-                    // ✅ Enhanced Loading Indicator with animation
-                    if (isLoadingMore)
-                      Container(
+                  // ✅ Enhanced Loading Indicator with animation
+                  if (isLoadingMore)
+                    SliverToBoxAdapter(
+                      child: Container(
                         padding: const EdgeInsets.all(16.0),
                         alignment: Alignment.center,
                         child: Column(
@@ -481,10 +458,12 @@ class _ProductGridViewSectionState extends State<ProductGridViewSection> {
                           ],
                         ),
                       ),
+                    ),
 
-                    // ✅ Enhanced End Message
-                    if (!hasMoreProducts && inStockProducts.isNotEmpty)
-                      Container(
+                  // ✅ Enhanced End Message
+                  if (!hasMoreProducts && inStockProducts.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: Container(
                         padding: const EdgeInsets.all(16.0),
                         alignment: Alignment.center,
                         child: Column(
@@ -503,21 +482,23 @@ class _ProductGridViewSectionState extends State<ProductGridViewSection> {
                                 fontStyle: FontStyle.italic,
                               ),
                             ),
+                            const SizedBox(height: 40), // Extra space for better scroll feels
                           ],
                         ),
                       ),
-                  ],
-                );
-              }
-            }),
-          ],
-        ),
+                    ),
+                ],
+              );
+            }
+          }),
+        ],
       ),
     );
   }
 }
 
 Widget buildSectionView({
+  Key? key,
   required String bannerImageUrl,
   required List<SubCategory> subCategories,
   required List<SubCategory>? categoryGridItems,
@@ -525,8 +506,10 @@ Widget buildSectionView({
   required int index,
   required ProductController productController,
   String? categoryId,
+  bool isLoading = false, // 🚀 New: Receive loading status
 }) {
   return ProductGridViewSection(
+    key: key,
     bannerImageUrl: bannerImageUrl,
     subCategories: subCategories,
     categoryGridItems: categoryGridItems,
@@ -534,5 +517,6 @@ Widget buildSectionView({
     index: index,
     productController: productController,
     categoryId: categoryId,
+    isLoading: isLoading, // 🚀 Pass it through
   );
 }

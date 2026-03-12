@@ -16,13 +16,113 @@ class HomeService {
     print('[HomeService] $message');
   }
 
-  /// Get home layout with comprehensive error handling
+  /// 1. Fetch App Categories (Includes banners)
+  Future<List<CategoryModel>> getAppCategories({bool forceRefresh = false}) async {
+    const String cacheKey = 'appCategoriesCache';
+    const String timestampKey = 'appCategoriesTimestamp';
+    const Duration cacheDuration = Duration(minutes: 30);
+
+    if (!forceRefresh) {
+      final cachedData = _box.read(cacheKey);
+      final cachedTimestamp = _box.read(timestampKey);
+
+      if (cachedData != null && cachedTimestamp != null) {
+        final lastFetch = DateTime.parse(cachedTimestamp);
+        if (DateTime.now().difference(lastFetch) < cacheDuration) {
+          _log('✅ Loading app categories from cache.');
+          try {
+            final List<dynamic> list = jsonDecode(cachedData);
+            return list.map((e) => CategoryModel.fromJson(e)).toList();
+          } catch (e) {
+            _log('❌ Cache decode error: $e');
+          }
+        }
+      }
+    }
+
+    try {
+      final url = Uri.parse('$_baseUrl/home/app/categories');
+      _log('Fetching app categories from: $url');
+      final response = await http.get(url).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final jsonData = jsonDecode(response.body);
+        final dynamic data = jsonData['data'];
+        if (data is List) {
+          _box.write(cacheKey, jsonEncode(data));
+          _box.write(timestampKey, DateTime.now().toIso8601String());
+          return data.map((e) => CategoryModel.fromJson(e)).toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      _log('❌ Error fetching categories: $e');
+      return [];
+    }
+  }
+
+  /// 2. Fetch Groups for a specific Category ID
+  Future<List<GroupModel>> getGroupsByCategoryId(String categoryId, {bool forceRefresh = false}) async {
+    final String cacheKey = 'categoryGroupsCache_$categoryId';
+    
+    // Aggressive Group Cache (15 mins) to prevent tab-switching shimmers
+    const Duration groupCacheDuration = Duration(minutes: 15);
+    final String timestampKey = 'categoryGroupsTimestamp_$categoryId';
+
+    if (!forceRefresh) {
+      final cachedData = _box.read(cacheKey);
+      final cachedTimestamp = _box.read(timestampKey);
+      
+      if (cachedData != null && cachedTimestamp != null) {
+        final lastFetch = DateTime.parse(cachedTimestamp);
+        if (DateTime.now().difference(lastFetch) < groupCacheDuration) {
+          try {
+            final List<dynamic> list = jsonDecode(cachedData);
+            return list.map((e) => GroupModel.fromJson(e)).toList();
+          } catch (e) {
+            _log('❌ Group cache decode error: $e');
+          }
+        }
+      }
+    }
+
+    try {
+      final url = Uri.parse('$_baseUrl/home/app/groups/$categoryId');
+      _log('Fetching groups for category: $categoryId from: $url');
+      final response = await http.get(url).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final jsonData = jsonDecode(response.body);
+        final dynamic data = jsonData['data'];
+        if (data is List) {
+          _box.write(cacheKey, jsonEncode(data));
+          _box.write('categoryGroupsTimestamp_$categoryId', DateTime.now().toIso8601String());
+          return data.map((e) => GroupModel.fromJson(e)).toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      _log('❌ Error fetching groups for $categoryId: $e');
+      return [];
+    }
+  }
+
+  /// Check if data is already in cache
+  bool hasCachedGroups(String categoryId) {
+    return _box.hasData('categoryGroupsCache_$categoryId');
+  }
+
+  bool hasCachedCategories() {
+    return _box.hasData('appCategoriesCache');
+  }
+
+  /// Get home layout with comprehensive error handling (DEPRECATED but kept for backward compatibility)
   Future<HomeLayoutModel?> getHomeLayout({bool forceRefresh = false}) async {
     const String cacheKey = 'homeLayoutCache';
     const String timestampKey = 'homeLayoutTimestamp';
     const Duration cacheDuration = Duration(
-      minutes: 10,
-    ); // Reduced to 10 minutes for better responsiveness
+      minutes: 3,
+    ); // Updated to 3 minutes as requested
 
     // 1. Try to load from cache first (if not forcing refresh)
     if (!forceRefresh) {

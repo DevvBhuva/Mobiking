@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:mobiking/app/controllers/product_controller.dart';
 import 'package:collection/collection.dart'; // ✅ ADDED: Required for firstWhereOrNull
+import 'coupon_controller.dart';
 
 import '../data/product_model.dart';
 import '../services/cart_service.dart';
@@ -49,6 +50,26 @@ class CartController extends GetxController {
 
     ever(cartData, (_) {
       _updateProductVariantQuantities();
+
+      final currentTotal = totalCartValue;
+      final isEmpty = cartItems.isEmpty;
+
+      // ✅ Handle Coupon Logic
+      try {
+        if (Get.isRegistered<CouponController>()) {
+          final couponController = Get.find<CouponController>();
+
+          if (isEmpty) {
+            // Cart is empty, reset coupon state completely
+            couponController.removeCoupon();
+          } else {
+            // Update subtotal for recalculation
+            couponController.setSubtotal(currentTotal);
+          }
+        }
+      } catch (e) {
+        debugPrint('🛒 CartController: Error updating coupon state: $e');
+      }
     });
   }
 
@@ -246,10 +267,7 @@ class CartController extends GetxController {
 
   int get totalCartItemsCount {
     int totalCount = 0;
-    for (var item in cartItems) {
-      totalCount += item['quantity'] as int? ?? 0;
-    }
-    print('🛒 CartController: Calculating totalCartItemsCount: $totalCount');
+    productVariantQuantities.forEach((_, qty) => totalCount += qty);
     return totalCount;
   }
 
@@ -360,7 +378,6 @@ class CartController extends GetxController {
         } catch (e) {
           debugPrint('📊 Analytics Error: $e');
         }
-
         return true;
       } else {
         final errorMessage =
@@ -492,7 +509,7 @@ class CartController extends GetxController {
     Get.snackbar(
       title,
       message,
-      snackPosition: SnackPosition.BOTTOM,
+      snackPosition: SnackPosition.TOP,
       backgroundColor: color.withOpacity(0.8),
       colorText: Colors.white,
       icon: Icon(icon, color: Colors.white),

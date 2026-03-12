@@ -15,6 +15,8 @@ import '../orders/order_screen.dart' show OrderHistoryScreen;
 import '../policy/logout_screen.dart';
 import '../policy/delete_account_screen.dart';
 import 'package:mobiking/app/controllers/login_controller.dart';
+import 'faq_screen.dart';
+import 'contact_us_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -41,6 +43,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: AppColors.neutralBackground,
       appBar: AppBar(
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: Icon(Icons.arrow_back, color: AppColors.textDark),
+                onPressed: () => Get.back(),
+              )
+            : null,
         title: Text(
           "My Profile",
           style: textTheme.bodyMedium?.copyWith(
@@ -172,8 +180,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 title: 'Share The App',
                 onTap: () {
                   Share.share(
-                    'Check out Mobiking for wholesale mobile phones and accessories: [Your App Store Link Here]',
+                    'Check out Mobiking for wholesale mobile phones and accessories: https://play.google.com/store/apps/details?id=com.mobiking.wholesale&pcampaignid=web_share',
                     subject: 'Discover Mobiking!',
+                  );
+                },
+              ),
+              ProfileListTile(
+                icon: Icons.help_outline_rounded,
+                title: 'FAQ',
+                onTap: () {
+                  Get.to(
+                    () => const FAQScreen(),
+                    transition: Transition.rightToLeftWithFade,
+                    duration: const Duration(milliseconds: 300),
                   );
                 },
               ),
@@ -203,6 +222,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 title: 'About Us',
                 onTap: () {
                   Get.to(() => const AboutScreen());
+                },
+              ),
+              ProfileListTile(
+                icon: Icons.contact_phone_outlined,
+                title: 'Contact Us',
+                onTap: () {
+                  Get.to(() => const ContactUsScreen());
                 },
               ),
 

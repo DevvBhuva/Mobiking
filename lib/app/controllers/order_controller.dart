@@ -85,9 +85,7 @@ void _showModernSnackbar(
   double? borderRadius,
   bool isError = false,
 }) {
-  if (isError) {
-    return;
-  }
+  // FIXED: Removed the 'if (isError) return' which was blocking errors
   // FIXED: Safer way to close existing snackbar
   try {
     if (Get.isSnackbarOpen) {
@@ -154,7 +152,7 @@ void _showModernSnackbar(
   });
 }
 
-class OrderController extends GetxController {
+class OrderController extends GetxController with WidgetsBindingObserver {
   final GetStorage _box = GetStorage();
   final OrderService _orderService = Get.find();
   final ConnectivityController _connectivityController = Get.find();
@@ -182,6 +180,11 @@ class OrderController extends GetxController {
   final RxBool isInitialLoading = true.obs;
   final RxBool isLoadingOrderHistory = false.obs;
 
+  // NEW: Tracking for inventory restoration
+  Timer? _backgroundTimer;
+  bool _isPaymentProcessActive = false; // Flag to track if payment modal is open
+  static const String _ongoingOrderKey = 'pending_order_id_for_restore';
+
   static const List STATUS_PROGRESS = [
     "Picked Up",
     "IN TRANSIT",
@@ -195,16 +198,97 @@ class OrderController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    WidgetsBinding.instance.addObserver(this); // Add lifecycle observer
     fetchOrderHistory();
     _razorpay = Razorpay();
     _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
     _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+    
+    /*
+    /*
+    // STARTUP CLEANUP: Check for orders abandoned from previous session (App Kill case)
+    _checkAndCleanupAbandonedOrder();
+    */
+    */
+
     _connectivityController.isConnected.listen((connected) {
       if (connected) {
         _handleConnectionRestored();
       }
     });
+  }
+
+  /*
+  // Handle App Lifecycle Changes (Minimization case)
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!_isPaymentProcessActive) return;
+
+    if (state == AppLifecycleState.paused) {
+      debugPrint('🕒 OrderController: App minimized. Starting 5-minute restoration timer.');
+      // Start 5-minute timer (300 seconds)
+      _backgroundTimer?.cancel();
+      _backgroundTimer = Timer(const Duration(minutes: 5), () {
+        if (_isPaymentProcessActive) {
+          debugPrint('⏰ OrderController: Background timeout reached. Restoring inventory automatically.');
+          _restoreInventoryIfPossible(reason: 'Background Timeout');
+        }
+      });
+    } else if (state == AppLifecycleState.resumed) {
+      debugPrint('☀️ OrderController: App resumed. Cancelling restoration timer.');
+      _backgroundTimer?.cancel();
+    }
+  }
+  */
+
+  // Startup cleanup for abandoned orders
+  Future<void> _checkAndCleanupAbandonedOrder() async {
+    final String? abandonedOrderId = _box.read(_ongoingOrderKey);
+    if (abandonedOrderId != null && abandonedOrderId.isNotEmpty) {
+      debugPrint('🏁 OrderController: Found abandoned order $abandonedOrderId on startup. Restoring inventory...');
+      // Wait a moment for services to initialize before calling API
+      Future.delayed(const Duration(seconds: 2), () {
+        /* _orderService.restoreInventory(abandonedOrderId).then((success) {
+          if (success) {
+            _box.remove(_ongoingOrderKey);
+            debugPrint('✅ OrderController: Abandoned order inventory successfully restored.');
+          }
+        }); */
+      });
+    }
+  }
+
+  // Unified helper for inventory restoration
+  Future<void> _restoreInventoryIfPossible({String reason = 'Unknown'}) async {
+    final String? orderIdToRestore = _currentBackendOrderId ?? _box.read(_ongoingOrderKey);
+    
+    if (orderIdToRestore != null && orderIdToRestore.isNotEmpty) {
+      /*
+      // Call Service (Already added restoreInventory to OrderService)
+      final success = await _orderService.restoreInventory(orderIdToRestore);
+      
+      if (success) {
+        debugPrint('✅ OrderController: Inventory restored successfully.');
+      } else {
+        debugPrint('⚠️ OrderController: Failed to restore inventory via API, but clearing state.');
+      }
+      */
+
+      // Cleanup local state
+      _isPaymentProcessActive = false;
+      _backgroundTimer?.cancel();
+      _box.remove(_ongoingOrderKey);
+      
+      // Optionally reset controller state
+      _currentBackendOrderId = null;
+      _currentRazorpayOrderId = null;
+    }
+  }
+
+  void resetGST() {
+    gstNumber.value = '';
+    print('OrderController: GST number reset');
   }
 
   Future _handleConnectionRestored() async {
@@ -260,8 +344,10 @@ class OrderController extends GetxController {
 
   @override
   void onClose() {
+    WidgetsBinding.instance.removeObserver(this); // Remove lifecycle observer
     _razorpay.clear();
     _pollingTimer?.cancel();
+    _backgroundTimer?.cancel();
     print('Razorpay listeners cleared.');
     super.onClose();
   }
@@ -332,7 +418,7 @@ class OrderController extends GetxController {
         'orderId': extractedOrderId,
         '_id': extractedOrderId,
         'id': extractedOrderId,
-        'paymentMethod': 'Online',
+        'paymentMethod': 'online',
         'paymentStatus': 'Paid',
         'status': 'Pending',
         'orderAmount': _currentOrderRequest!.orderAmount,
@@ -355,7 +441,7 @@ class OrderController extends GetxController {
           'razorpayPaymentId': response.paymentId,
           'razorpayOrderId': response.orderId,
           'razorpaySignature': response.signature,
-          'paymentMethod': 'Online',
+          'paymentMethod': 'online',
           'amount': _currentOrderRequest!.orderAmount,
           'currency': 'INR',
           'timestamp': DateTime.now().toIso8601String(),
@@ -363,7 +449,7 @@ class OrderController extends GetxController {
       };
 
       // Complete order success operations
-      await _completeOrderSuccess(completeOrderData, 'Online');
+      await _completeOrderSuccess(completeOrderData, 'online');
 
       // ✅ LOG ANALYTICS: Purchase
       try {
@@ -397,7 +483,12 @@ class OrderController extends GetxController {
 
       try {
         if (Get.context != null) {
-          Get.offAll(
+          // Navigate back to the homepage (MainContainerScreen) and clear navigation stack until we reach it
+          // This preserves the home screen state while removing all checkout/payment screens
+          Get.until((route) => Get.currentRoute == '/MainContainerScreen' || route.isFirst);
+          
+          // Then push the confirmation screen on top of the existing home screen
+          Get.to(
             () => OrderConfirmationScreen(
               orderId: extractedOrderId,
               orderData: completeOrderData,
@@ -442,6 +533,9 @@ class OrderController extends GetxController {
       );
     } finally {
       isLoading.value = false;
+      _isPaymentProcessActive = false;
+      _backgroundTimer?.cancel();
+      _box.remove(_ongoingOrderKey);
       _resetOrderState();
     }
   }
@@ -586,7 +680,7 @@ class OrderController extends GetxController {
 
       // ENHANCED: Add all necessary fields for confirmation screen
       orderData.addAll({
-        'paymentMethod': 'Online',
+        'paymentMethod': 'online',
         'paymentStatus': 'Paid',
         'status': orderData['status'] ?? 'Pending',
         'orderAmount': orderRequest.orderAmount,
@@ -608,7 +702,7 @@ class OrderController extends GetxController {
           'razorpayPaymentId': paymentResponse.paymentId,
           'razorpayOrderId': paymentResponse.orderId,
           'razorpaySignature': paymentResponse.signature,
-          'paymentMethod': 'Online',
+          'paymentMethod': 'online',
           'amount': orderRequest.orderAmount,
           'currency': 'INR',
           'timestamp': DateTime.now().toIso8601String(),
@@ -642,7 +736,7 @@ class OrderController extends GetxController {
       return {
         'orderId': verifiedOrderId,
         '_id': verifiedOrderId,
-        'paymentMethod': 'Online',
+        'paymentMethod': 'online',
         'status': 'Pending',
         'orderAmount': orderRequest.orderAmount,
         'createdAt': DateTime.now().toIso8601String(),
@@ -691,9 +785,22 @@ class OrderController extends GetxController {
     debugPrint('❌ Message: ${response.message}');
 
     isLoading.value = false;
-    _resetOrderState();
-
     String errorMessage = 'Payment failed. Please try again.';
+
+    // Case 1: Handle user cancellation explicitly
+    if (response.code == RazorpayErrorCodes.PAYMENT_CANCELLED) {
+      errorMessage = 'Payment was cancelled by user.';
+      // _restoreInventoryIfPossible(reason: 'User Cancelled');
+    } else {
+      // For any other error, we still want to clear the active payment flag 
+      // but we might not restore inventory immediately to allow for potential retry UI
+      // However, to keep it simple and safe as per client requirements:
+      _isPaymentProcessActive = false;
+      _backgroundTimer?.cancel();
+      _box.remove(_ongoingOrderKey);
+    }
+    
+    _resetOrderState();
 
     // FIXED: Use custom error codes instead of Razorpay constants
     switch (response.code) {
@@ -770,7 +877,7 @@ class OrderController extends GetxController {
     await _processOrder(method: method, orderRequest: orderRequest);
   }
 
-  // FIXED: Reset order state
+  // FIXED: Reset order state and internal flags
   Future _resetOrderState() async {
     _currentBackendOrderId = null;
     _currentRazorpayOrderId = null;
@@ -779,6 +886,11 @@ class OrderController extends GetxController {
     _verifiedOrderId.value = '';
     _verifiedOrderData.clear();
     isLoading.value = false;
+    
+    // Safety: ensure flags are reset
+    _isPaymentProcessActive = false;
+    _backgroundTimer?.cancel();
+    _box.remove(_ongoingOrderKey);
   }
 
   // Validate basic order prerequisites
@@ -929,7 +1041,9 @@ class OrderController extends GetxController {
       method: method,
       items: orderItems,
       addressId: addressId,
-      couponId: couponId,
+      coupon: couponId,
+      couponCode: isCouponApplied ? _couponController.selectedCoupon.value?.code : null,
+      discountAmount: isCouponApplied ? _couponController.discountAmount.value : 0.0,
     );
 
     debugPrint('Order Request Data: ${orderRequest.toJson()}');
@@ -1112,22 +1226,106 @@ class OrderController extends GetxController {
 
       // Show confirmation dialog for COD
       final bool? confirmed = await Get.dialog<bool>(
-        AlertDialog(
-          title: const Text('Confirm COD Order'),
-          content: Text(
-            'You are about to place a Cash on Delivery order for ₹${orderRequest.orderAmount.toStringAsFixed(0)}. Do you want to proceed?',
+        Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.rectangle,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10.0,
+                  offset: const Offset(0.0, 10.0),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryPurple.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.shopping_bag_outlined,
+                    color: AppColors.primaryPurple,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Confirm COD Order',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'You are about to place a Cash on Delivery order for ₹${orderRequest.orderAmount.toStringAsFixed(0)}. Do you want to proceed?',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textMedium,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(Get.context!).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          side: BorderSide(color: Colors.grey.shade300),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: AppColors.textMedium,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(Get.context!).pop(true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryPurple,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Confirm',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Get.back(result: false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Get.back(result: true),
-              child: const Text('Confirm'),
-            ),
-          ],
         ),
+        barrierDismissible: false,
       );
 
       if (confirmed == null || !confirmed) {
@@ -1179,7 +1377,9 @@ class OrderController extends GetxController {
       // Wait a moment to ensure data is written
       await Future.delayed(const Duration(milliseconds: 500));
 
-      Get.offAll(
+      // Navigate back to root/home and push confirmation
+      Get.until((route) => route.isFirst);
+      Get.to(
         () => OrderConfirmationScreen(
           orderId: extractedOrderId,
           orderData: completeOrderData,
@@ -1361,6 +1561,10 @@ class OrderController extends GetxController {
       debugPrint('💳 Opening Razorpay payment gateway...');
 
       // Open Razorpay payment gateway
+      _isPaymentProcessActive = true;
+      if (_currentBackendOrderId != null) {
+        _box.write(_ongoingOrderKey, _currentBackendOrderId);
+      }
       _razorpay.open(options);
     } catch (e, stackTrace) {
       debugPrint('❌ === ERROR IN ONLINE ORDER PROCESSING ===');
@@ -1708,8 +1912,12 @@ class OrderController extends GetxController {
       // Refresh order history
       fetchOrderHistory();
 
+      // Reset Order state (GST, Coupon, etc.)
+      resetGST();
+      _couponController.reset();
+
       debugPrint(
-        '✅ Order saved locally, cart cleared, and order history refreshed',
+        '✅ Order saved locally, cart cleared, coupon reset and order history refreshed',
       );
     } catch (e, stackTrace) {
       debugPrint('❌ CRITICAL ERROR in _completeOrderSuccess: $e');
@@ -1886,10 +2094,13 @@ class OrderController extends GetxController {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              IconButton(
-                icon: Icon(Icons.close, color: AppColors.textLight),
-                onPressed: () => Get.back(result: false),
-                splashRadius: 20,
+              GestureDetector(
+                onTap: () => Get.back(result: false),
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Icon(Icons.close, color: AppColors.textMedium, size: 24),
+                ),
               ),
             ],
           ),
@@ -1930,8 +2141,7 @@ class OrderController extends GetxController {
                       visualDensity: VisualDensity.compact,
                     );
                   }).toList(),
-                  if (selectedReasonForRequest.value ==
-                      'Other (please specify)')
+                  if (selectedReasonForRequest.value == 'Other')
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
                       child: TextField(
@@ -1989,11 +2199,21 @@ class OrderController extends GetxController {
                   onPressed: () {
                     String currentReason = selectedReasonForRequest.value;
                     if (currentReason.isEmpty) {
-                      // Removed error snackbar
-                    } else if (currentReason == 'Other (please specify)' &&
+                      _showModernSnackbar(
+                        'Reason Required',
+                        'Please select a reason for your request.',
+                        isError: true,
+                        backgroundColor: Colors.red.shade600,
+                      );
+                    } else if (currentReason == 'Other' &&
                         (reasonController.text.trim().isEmpty ||
-                            reasonController.text.trim().length < 10)) {
-                      // Removed error snackbar
+                            reasonController.text.trim().length < 5)) {
+                      _showModernSnackbar(
+                        'More Detail Required',
+                        'Please provide at least a short explanation.',
+                        isError: true,
+                        backgroundColor: Colors.red.shade600,
+                      );
                     } else {
                       Get.back(result: true);
                     }
@@ -2026,19 +2246,21 @@ class OrderController extends GetxController {
       ),
     );
 
-    reasonController.dispose();
-
     if (dialogResult == null || !dialogResult) {
+      reasonController.dispose();
       print('$requestType request cancelled by user or no reason provided.');
       return;
     }
 
     String finalReasonToSend;
-    if (selectedReasonForRequest.value == 'Other (please specify)') {
+    if (selectedReasonForRequest.value == 'Other') {
       finalReasonToSend = reasonController.text.trim();
     } else {
       finalReasonToSend = selectedReasonForRequest.value;
     }
+
+    // Dispose after fetching values
+    reasonController.dispose();
 
     isLoading.value = true;
     try {
@@ -2073,8 +2295,21 @@ class OrderController extends GetxController {
       );
       await fetchOrderHistory();
     } on OrderServiceException catch (e) {
-      print('OrderServiceException: ${e.message}');
+      _showModernSnackbar(
+        'Request Error',
+        e.message,
+        isError: true,
+        icon: Icons.error_outline,
+        backgroundColor: Colors.red.shade600,
+      );
     } catch (e) {
+      _showModernSnackbar(
+        'Unexpected Error',
+        'Something went wrong. Please try again later.',
+        isError: true,
+        icon: Icons.warning_amber_rounded,
+        backgroundColor: Colors.orange.shade700,
+      );
       print('Unexpected error: $e');
     } finally {
       isLoading.value = false;

@@ -55,16 +55,7 @@ class _SearchPageState extends State<SearchPage> with TickerProviderStateMixin {
     fadeController.forward();
   }
 
-  Timer? _debounce;
-
   void _setupListeners() {
-    textController.addListener(() {
-      if (_debounce?.isActive ?? false) _debounce?.cancel();
-      _debounce = Timer(const Duration(milliseconds: 500), () {
-        searchController.onSearchChanged(textController.text);
-      });
-    });
-
     scrollController.addListener(() {
       if (scrollController.position.pixels >=
           scrollController.position.maxScrollExtent - 200) {
@@ -75,7 +66,6 @@ class _SearchPageState extends State<SearchPage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    _debounce?.cancel();
     textController.dispose();
     focusNode.dispose();
     scrollController.dispose();
@@ -168,56 +158,55 @@ class _SearchHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusBarHeight = MediaQuery.of(context).viewPadding.top;
     final textTheme = Theme.of(context).textTheme;
 
-    return Container(
-      height: statusBarHeight + 80,
-      width: double.infinity,
+    return Material(
       color: AppColors.white,
-      child: Column(
-        children: [
-          SizedBox(height: statusBarHeight),
-          Container(
-            height: 80,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.textDark.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: IconButton(
-                    icon: const Icon(
+      elevation: 2,
+      shadowColor: AppColors.textDark.withOpacity(0.1),
+      child: SafeArea(
+        bottom: false,
+        child: Container(
+          height: 70,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Row(
+            children: [
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    } else {
+                      Get.back();
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(25),
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    alignment: Alignment.center,
+                    child: const Icon(
                       Icons.arrow_back_ios_new_rounded,
-                      size: 18,
+                      size: 22,
+                      color: AppColors.textDark,
                     ),
-                    onPressed: () => Get.back(),
-                    padding: EdgeInsets.zero,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _SearchField(
-                    textController: textController,
-                    focusNode: focusNode,
-                    searchController: searchController,
-                    textTheme: textTheme,
-                  ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: _SearchField(
+                  textController: textController,
+                  focusNode: focusNode,
+                  searchController: searchController,
+                  textTheme: textTheme,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -280,6 +269,9 @@ class _SearchField extends StatelessWidget {
         child: TextField(
           controller: textController,
           focusNode: focusNode,
+          onChanged: (value) {
+            searchController.onSearchChanged(value);
+          },
           onSubmitted: _handleSubmit,
           style: textTheme.bodyMedium?.copyWith(
             color: AppColors.textDark,
@@ -292,7 +284,7 @@ class _SearchField extends StatelessWidget {
           maxLines: 1,
           textAlignVertical: TextAlignVertical.center,
           keyboardType: TextInputType.text,
-          textCapitalization: TextCapitalization.none,
+          textCapitalization: TextCapitalization.characters,
           inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\n'))],
           decoration: InputDecoration(
             hintText: 'Search for products...',

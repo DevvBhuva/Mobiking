@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:math';
 
 import '../../../controllers/cart_controller.dart';
@@ -130,41 +131,19 @@ class ProductCards extends StatelessWidget {
                                 width: double.infinity,
                                 color: AppColors.neutralBackground,
                                 child: hasImage
-                                    ? Image.network(
-                                        product.images[0],
+                                    ? CachedNetworkImage(
+                                        imageUrl: product.images[0],
                                         fit: BoxFit.cover,
-                                        loadingBuilder: (context, child, loadingProgress) {
-                                          if (loadingProgress == null)
-                                            return child;
-                                          return Center(
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: AppColors.success,
-                                              value:
-                                                  loadingProgress
-                                                          .expectedTotalBytes !=
-                                                      null
-                                                  ? loadingProgress
-                                                            .cumulativeBytesLoaded /
-                                                        loadingProgress
-                                                            .expectedTotalBytes!
-                                                  : null,
-                                            ),
-                                          );
-                                        },
-                                        errorBuilder:
-                                            (
-                                              context,
-                                              error,
-                                              stackTrace,
-                                            ) => Center(
-                                              child: Icon(
-                                                Icons
-                                                    .image_not_supported_outlined,
-                                                size: isSmallScreen ? 24 : 28,
-                                                color: AppColors.textLight,
-                                              ),
-                                            ),
+                                        placeholder: (context, url) => Container(
+                                          color: AppColors.neutralBackground,
+                                        ),
+                                        errorWidget: (context, url, error) => Center(
+                                          child: Icon(
+                                            Icons.image_not_supported_outlined,
+                                            size: isSmallScreen ? 24 : 28,
+                                            color: AppColors.textLight,
+                                          ),
+                                        ),
                                       )
                                     : Center(
                                         child: Icon(

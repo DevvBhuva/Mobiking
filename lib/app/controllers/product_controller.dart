@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../data/product_model.dart';
 import '../services/product_service.dart';
+import '../utils/image_utils.dart';
 
 class ProductController extends GetxController {
   final ProductService _productService = ProductService();
@@ -84,6 +87,9 @@ class ProductController extends GetxController {
       hasMoreProducts.value = products.length == _productsPerPage;
       initialLoadCompleted.value = true;
       _lastFetchTime = DateTime.now();
+
+      // 🚀 OPTIMIZATION: Pre-cache images in background
+      _preCacheProductImages(activeProducts);
     } catch (e) {
       print('❌ Error fetching initial products: $e');
       hasMoreProducts.value = false;
@@ -102,58 +108,64 @@ class ProductController extends GetxController {
       return;
     }
 
-    // 🚀 OPTIMIZATION: Debounce rapid scroll requests
-    _debounceTimer?.cancel();
-    _debounceTimer = Timer(_debounceDelay, () => _executeFetchMore());
-  }
-
-  /// 🚀 LAZY LOADING: Execute the actual fetch more operation
-  Future<void> _executeFetchMore() async {
-    if (isFetchingMore.value || !hasMoreProducts.value) return;
-
     try {
-      print("📦 Loading more products... (Page ${_currentPage + 1})");
       isFetchingMore.value = true;
       _currentPage++;
 
-      final newProducts = await _productService.getAllProducts(
+      final products = await _productService.getAllProducts(
         page: _currentPage,
         limit: _productsPerPage,
       );
 
-      // Filter for active products
-      final activeNewProducts = newProducts
-          .where((p) => p.active == true)
-          .toList();
+      final activeProducts = products.where((p) => p.active == true).toList();
 
-      print("✨ Fetched ${activeNewProducts.length} new active products");
-
-      if (activeNewProducts.isEmpty) {
+      if (activeProducts.isEmpty) {
         hasMoreProducts.value = false;
-        print("🏁 Reached end of products");
-      } else {
-        // 🚀 OPTIMIZATION: Memory management - remove old products if cache is too large
-        if (allProducts.length > _maxCacheSize) {
-          final removeCount =
-              allProducts.length - _maxCacheSize + activeNewProducts.length;
-          allProducts.removeRange(0, removeCount);
-          print("🧹 Removed $removeCount old products to manage memory");
-        }
-
-        allProducts.addAll(activeNewProducts);
-        _totalProductsLoaded += activeNewProducts.length;
-        hasMoreProducts.value = activeNewProducts.length == _productsPerPage;
-        _lastFetchTime = DateTime.now();
+        return;
       }
+
+      allProducts.addAll(activeProducts);
+      _totalProductsLoaded += activeProducts.length;
+      hasMoreProducts.value = products.length == _productsPerPage;
+
+      // 🚀 OPTIMIZATION: Pre-cache new images
+      _preCacheProductImages(activeProducts);
+      
+      print("✅ Completed loading page $_currentPage (Total: $_totalProductsLoaded products)");
     } catch (e) {
       print('❌ Error fetching more products: $e');
-      // 🚀 OPTIMIZATION: Don't disable hasMore on network error, allow retry
-      _currentPage--; // Rollback page increment
+      hasMoreProducts.value = false;
     } finally {
       isFetchingMore.value = false;
-      print(
-        "✅ Completed loading page $_currentPage (Total: $_totalProductsLoaded products)",
-      );
+    }
+  }
+
+  /// 🚀 OPTIMIZATION: Pre-cache images for a list of products
+  void _preCacheProductImages(List<ProductModel> products) {
+    if (Get.context == null) return;
+
+    // We pre-cache both original and 200px (standard grid size) for instant display
+    for (var product in products) {
+      if (product.images.isNotEmpty && product.images[0].isNotEmpty) {
+        final originalUrl = product.images[0];
+        final resizedUrl = getResizedImageUrl(originalUrl, 200);
+
+        try {
+          // Pre-cache original (for product detail page and some cards)
+          precacheImage(
+            CachedNetworkImageProvider(originalUrl),
+            Get.context!,
+          );
+          
+          // Pre-cache 200px (for the main product grid scroll performance)
+          precacheImage(
+            CachedNetworkImageProvider(resizedUrl),
+            Get.context!,
+          );
+        } catch (e) {
+          // Ignore pre-cache errors
+        }
+      }
     }
   }
 
@@ -210,6 +222,9 @@ class ProductController extends GetxController {
 
       searchResults.assignAll(activeResults);
       print("🎯 Found ${activeResults.length} active search results");
+      
+      // 🚀 OPTIMIZATION: Pre-cache search results
+      _preCacheProductImages(activeResults);
     } catch (e) {
       print('❌ Search error: $e');
       searchResults.clear();
@@ -380,6 +395,9 @@ class ProductController extends GetxController {
       isFetchingRelatedProducts.value = true;
       final products = await _productService.fetchRelatedProducts(slug);
       relatedProducts.assignAll(products);
+      
+      // 🚀 OPTIMIZATION: Pre-cache related products
+      _preCacheProductImages(products);
     } catch (e) {
       print('Error fetching related products: $e');
     } finally {

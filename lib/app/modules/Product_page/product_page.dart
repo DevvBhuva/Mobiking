@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart'; // Add to pubspec.yaml for SVG support
 import 'package:get/get.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:mobiking/app/controllers/product_controller.dart';
 import 'package:mobiking/app/modules/home/widgets/AllProductGridCard.dart';
@@ -681,55 +682,42 @@ class _ProductPageState extends State<ProductPage>
                   margin: const EdgeInsets.symmetric(vertical: 12.0),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12.0),
-                    child: Image.network(
-                      src,
+                    child: CachedNetworkImage(
+                      imageUrl: src,
                       width: width ?? double.infinity,
                       height: height,
                       fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          height: height ?? 200,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(12.0),
-                          ),
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                SizedBox(
-                                  width: 28,
-                                  height: 28,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                    value:
-                                        loadingProgress.expectedTotalBytes !=
-                                            null
-                                        ? loadingProgress
-                                                  .cumulativeBytesLoaded /
-                                              loadingProgress
-                                                  .expectedTotalBytes!
-                                        : null,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      AppColors.success,
-                                    ),
-                                  ),
+                      placeholder: (context, url) => Container(
+                        height: height ?? 200,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12.0),
+                        ),
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 28,
+                                height: 28,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: AppColors.success,
                                 ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'Loading image...',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey.shade600,
-                                  ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Loading image...',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
+                        ),
+                      ),
+                      errorWidget: (context, url, error) {
                         print("❌ Network image error: $error");
                         return _buildImageErrorWidget(alt);
                       },
@@ -1008,7 +996,7 @@ class _ProductPageState extends State<ProductPage>
                         imageUrls: product.images,
                         badgeText: null,
                         isFavorite: isFavorite,
-                        onBack: () => Get.back(),
+                        onBack: () => Navigator.maybePop(context),
                         onFavorite: () {
                           if (isFavorite) {
                             wishlistController.removeFromWishlist(product.id);

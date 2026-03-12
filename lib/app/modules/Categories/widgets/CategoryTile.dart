@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 // --- Color Palette based on your theme preferences ---
 // Using a private class to hold the color values for this example.
@@ -120,23 +121,17 @@ class CategoryTile extends StatelessWidget {
       );
     }
 
-    // Network Image (PNG, JPG, etc.)
-    return Image.network(
-      url,
+    // Network Image (PNG, JPG, etc.) with Caching
+    return CachedNetworkImage(
+      imageUrl: url,
       fit: BoxFit.cover,
-      semanticLabel: 'Image for $title category',
-      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-        if (wasSynchronouslyLoaded || frame != null) {
-          return child;
-        }
-        return _buildFallbackWidget();
-      },
-      errorBuilder: (context, error, stackTrace) {
+      memCacheHeight: 200,
+      memCacheWidth: 200,
+      placeholder: (context, url) => _buildFallbackWidget(),
+      errorWidget: (context, url, error) {
         debugPrint('Failed to load image for $title: $error');
         return _buildFallbackWidget();
       },
-      cacheHeight: 200,
-      cacheWidth: 200,
     );
   }
 

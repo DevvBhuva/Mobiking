@@ -359,7 +359,8 @@ class OrderModel {
   final bool abondonedOrder;
 
   // Pricing
-  final String? couponId; // ADDED: To store the coupon's _id
+  final String? couponId; // To store the coupon's _id
+  final String? couponCode; // ADDED: To store the coupon code
   final double orderAmount;
   final double deliveryCharge;
   final double discount;
@@ -373,23 +374,23 @@ class OrderModel {
 
   // Address
   final String? address; // Main address line
-  final String? address2; // ADDED
-  final String? city; // ADDED
-  final String? state; // ADDED
-  final String? pincode; // ADDED
-  final String? country; // ADDED
+  final String? address2;
+  final String? city;
+  final String? state;
+  final String? pincode;
+  final String? country;
   final String? addressId;
 
   // Relations
   final OrderUserModel? userId;
-  final QueryModel? query; // ADDED: To hold populated query details
+  final QueryModel? query;
 
   // Product/Items Details
   final List<OrderItemModel> items;
-  final double? length; // ADDED
-  final double? breadth; // ADDED
-  final double? height; // ADDED
-  final double? weight; // ADDED
+  final double? length;
+  final double? breadth;
+  final double? height;
+  final double? weight;
 
   // Timestamps
   final DateTime createdAt;
@@ -400,13 +401,13 @@ class OrderModel {
     required this.id,
     required this.orderId,
     required this.status,
-    this.reason, // MODIFIED
-    this.comments, // ADDED
+    this.reason,
+    this.comments,
     required this.shippingStatus,
     this.scans,
-    this.returnData, // ADDED
+    this.returnData,
     required this.paymentStatus,
-    this.paymentDate, // ADDED
+    this.paymentDate,
     this.isReviewed = false,
     this.shipmentId,
     this.shiprocketOrderId,
@@ -422,9 +423,9 @@ class OrderModel {
     this.shippingLabelUrl,
     this.shippingManifestUrl,
     this.deliveredAt,
-    this.rtoInitiatedAt, // ADDED
-    this.rtoDeliveredAt, // ADDED
-    this.retrunDeliveredAt, // ADDED
+    this.rtoInitiatedAt,
+    this.rtoDeliveredAt,
+    this.retrunDeliveredAt,
     this.razorpayOrderId,
     this.razorpayPaymentId,
     List<RequestModel>? requests,
@@ -432,7 +433,8 @@ class OrderModel {
     required this.method,
     this.isAppOrder = false,
     this.abondonedOrder = true,
-    this.couponId, // ADDED
+    this.couponId,
+    this.couponCode, // ADDED
     required this.orderAmount,
     this.deliveryCharge = 0.0,
     this.discount = 0.0,
@@ -442,19 +444,19 @@ class OrderModel {
     this.email,
     this.phoneNo,
     this.address,
-    this.address2, // ADDED
-    this.city, // ADDED
-    this.state, // ADDED
-    this.pincode, // ADDED
-    this.country, // ADDED
+    this.address2,
+    this.city,
+    this.state,
+    this.pincode,
+    this.country,
     this.addressId,
     this.userId,
-    this.query, // ADDED
+    this.query,
     required this.items,
-    this.length, // ADDED
-    this.breadth, // ADDED
-    this.height, // ADDED
-    this.weight, // ADDED
+    this.length,
+    this.breadth,
+    this.height,
+    this.weight,
     required this.createdAt,
     required this.updatedAt,
     this.v,
@@ -462,21 +464,46 @@ class OrderModel {
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     print('Parsing OrderModel. Query field: ${json['query']}');
+
+    // Logic to extract coupon info
+    final dynamic couponData = json['coupon'];
+    String? cId;
+    String? cCode;
+
+    if (couponData is Map) {
+      cId = couponData['_id']?.toString();
+      cCode = (couponData['code'] ?? couponData['name'])?.toString();
+    } else if (couponData != null) {
+      cId = couponData.toString();
+    }
+
+    // Try other common field names for code if not found yet
+    cCode ??= (json['couponCode'] ??
+            json['coupon_code'] ??
+            json['coupon_name'] ??
+            json['code'])
+        ?.toString();
+
+    // Fallback: if cCode is still null, but cId doesn't look like a MongoDB ID, it might be the code
+    if (cCode == null && cId != null && cId.length < 20) {
+      cCode = cId;
+    }
+
     return OrderModel(
       id: json['_id']?.toString() ?? '',
       orderId: json['orderId']?.toString() ?? '',
       status: json['status']?.toString() ?? 'New',
-      reason: json['reason']?.toString(), // MODIFIED
-      comments: json['comments']?.toString(), // ADDED
+      reason: json['reason']?.toString(),
+      comments: json['comments']?.toString(),
       shippingStatus: json['shippingStatus']?.toString() ?? 'Pending',
       scans: (json['scans'] as List<dynamic>?)
           ?.map((e) => Scan.fromJson(e as Map<String, dynamic>))
           .toList(),
-      returnData: json['returnData'] as Map<String, dynamic>?, // ADDED
+      returnData: json['returnData'] as Map<String, dynamic>?,
       paymentStatus: json['paymentStatus']?.toString() ?? 'Pending',
       paymentDate: DateTime.tryParse(
         json['paymentDate']?.toString() ?? '',
-      ), // ADDED
+      ),
       isReviewed: json['isReviewed'] as bool? ?? false,
 
       shipmentId: json['shipmentId']?.toString(),
@@ -495,9 +522,9 @@ class OrderModel {
       shippingLabelUrl: json['shippingLabelUrl']?.toString(),
       shippingManifestUrl: json['shippingManifestUrl']?.toString(),
       deliveredAt: json['deliveredAt']?.toString(),
-      rtoInitiatedAt: json['rtoInitiatedAt']?.toString(), // ADDED
-      rtoDeliveredAt: json['rtoDeliveredAt']?.toString(), // ADDED
-      retrunDeliveredAt: json['retrunDeliveredAt']?.toString(), // ADDED
+      rtoInitiatedAt: json['rtoInitiatedAt']?.toString(),
+      rtoDeliveredAt: json['rtoDeliveredAt']?.toString(),
+      retrunDeliveredAt: json['retrunDeliveredAt']?.toString(),
 
       razorpayOrderId: json['razorpayOrderId']?.toString(),
       razorpayPaymentId: json['razorpayPaymentId']?.toString(),
@@ -513,8 +540,8 @@ class OrderModel {
       isAppOrder: json['isAppOrder'] as bool? ?? false,
       abondonedOrder: json['abondonedOrder'] as bool? ?? true,
 
-      couponId: (json['coupon'] is Map ? json['coupon']['_id'] : json['coupon'])
-          ?.toString(), // ADDED
+      couponId: cId,
+      couponCode: cCode,
 
       orderAmount: (json['orderAmount'] as num?)?.toDouble() ?? 0.0,
       deliveryCharge: (json['deliveryCharge'] as num?)?.toDouble() ?? 0.0,
@@ -527,11 +554,11 @@ class OrderModel {
       phoneNo: json['phoneNo']?.toString(),
 
       address: json['address']?.toString(),
-      address2: json['address2']?.toString(), // ADDED
-      city: json['city']?.toString(), // ADDED
-      state: json['state']?.toString(), // ADDED
-      pincode: json['pincode']?.toString(), // ADDED
-      country: json['country']?.toString(), // ADDED
+      address2: json['address2']?.toString(),
+      city: json['city']?.toString(),
+      state: json['state']?.toString(),
+      pincode: json['pincode']?.toString(),
+      country: json['country']?.toString(),
       addressId: json['addressId']?.toString(),
 
       userId: json['userId'] != null && json['userId'] is Map
@@ -539,11 +566,9 @@ class OrderModel {
           : null,
 
       query:
-          json['query'] != null &&
-              json['query']
-                  is Map // ADDED
-          ? QueryModel.fromJson(json['query'] as Map<String, dynamic>)
-          : null,
+          json['query'] != null && json['query'] is Map
+              ? QueryModel.fromJson(json['query'] as Map<String, dynamic>)
+              : null,
 
       items:
           (json['items'] as List<dynamic>?)
@@ -551,10 +576,10 @@ class OrderModel {
               .toList() ??
           [],
 
-      length: (json['length'] as num?)?.toDouble(), // ADDED
-      breadth: (json['breadth'] as num?)?.toDouble(), // ADDED
-      height: (json['height'] as num?)?.toDouble(), // ADDED
-      weight: (json['weight'] as num?)?.toDouble(), // ADDED
+      length: (json['length'] as num?)?.toDouble(),
+      breadth: (json['breadth'] as num?)?.toDouble(),
+      height: (json['height'] as num?)?.toDouble(),
+      weight: (json['weight'] as num?)?.toDouble(),
 
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
@@ -571,13 +596,13 @@ class OrderModel {
       '_id': id,
       'orderId': orderId,
       'status': status,
-      'reason': reason, // MODIFIED
-      'comments': comments, // ADDED
+      'reason': reason,
+      'comments': comments,
       'shippingStatus': shippingStatus,
       'scans': scans?.map((e) => e.toJson()).toList(),
-      'returnData': returnData, // ADDED
+      'returnData': returnData,
       'paymentStatus': paymentStatus,
-      'paymentDate': paymentDate?.toIso8601String(), // ADDED
+      'paymentDate': paymentDate?.toIso8601String(),
       'isReviewed': isReviewed,
       'shipmentId': shipmentId,
       'shiprocketOrderId': shiprocketOrderId,
@@ -593,9 +618,9 @@ class OrderModel {
       'shippingLabelUrl': shippingLabelUrl,
       'shippingManifestUrl': shippingManifestUrl,
       'deliveredAt': deliveredAt,
-      'rtoInitiatedAt': rtoInitiatedAt, // ADDED
-      'rtoDeliveredAt': rtoDeliveredAt, // ADDED
-      'retrunDeliveredAt': retrunDeliveredAt, // ADDED
+      'rtoInitiatedAt': rtoInitiatedAt,
+      'rtoDeliveredAt': rtoDeliveredAt,
+      'retrunDeliveredAt': retrunDeliveredAt,
       'razorpayOrderId': razorpayOrderId,
       'razorpayPaymentId': razorpayPaymentId,
       'requests': requests.map((e) => e.toJson()).toList(),
@@ -603,7 +628,8 @@ class OrderModel {
       'method': method,
       'isAppOrder': isAppOrder,
       'abondonedOrder': abondonedOrder,
-      'coupon': couponId, // ADDED
+      'coupon': couponId,
+      'couponCode': couponCode, // ADDED
       'orderAmount': orderAmount,
       'deliveryCharge': deliveryCharge,
       'discount': discount,

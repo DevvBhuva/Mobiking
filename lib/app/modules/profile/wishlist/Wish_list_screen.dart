@@ -1,62 +1,69 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:mobiking/app/themes/app_theme.dart'; // Your AppColors and AppTheme
 
 import '../../../controllers/cart_controller.dart';
 import '../../../controllers/wishlist_controller.dart';
 import 'Wish_list_card.dart'; // Ensure this path is correct and it's the updated version
+import '../../../data/product_model.dart'; // Added missing import
+import '../../checkout/CheckoutScreen.dart';
 
 class WishlistScreen extends StatelessWidget {
-  WishlistScreen({super.key}) {
-    // This will get the controller instance and immediately call the fetch method.
-    // It ensures data is fetched every time the screen is navigated to.
-    Get.find<WishlistController>().fetchWishlistOnScreenLoad();
-  }
-
-  final controller = Get.find<WishlistController>();
+  const WishlistScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final controller = Get.find<WishlistController>();
+    final cartController = Get.find<CartController>();
+    
+    // Ensure data is refreshed on build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.fetchWishlistOnScreenLoad();
+    });
+
     final TextTheme textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: AppColors.neutralBackground, // Consistent background
+      backgroundColor: AppColors.neutralBackground,
       appBar: AppBar(
-        elevation: 0.5, // Subtle elevation
-        backgroundColor:
-            AppColors.white, // White AppBar background (Blinkit style)
+        elevation: 0,
+        backgroundColor: AppColors.white,
         leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back,
-            color: AppColors.textDark,
-          ), // Dark back arrow
-          onPressed: () => Get.back(),
+          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textDark),
+          iconSize: 28,
+          tooltip: 'Back',
+          visualDensity: VisualDensity.comfortable,
+          onPressed: () {
+            debugPrint('🔙 Wishlist: Header back button pressed');
+            HapticFeedback.mediumImpact();
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              Get.back();
+            }
+          },
         ),
         title: Text(
           'My Wishlist',
           style: textTheme.titleLarge?.copyWith(
-            // Consistent title style
             fontWeight: FontWeight.w700,
-            color: AppColors.textDark, // Dark text
+            color: AppColors.textDark,
           ),
         ),
-        centerTitle: false, // Left-aligned title (more common in Blinkit)
+        centerTitle: false,
       ),
       body: Obx(() {
-        if (controller.isLoading.value) {
+        if (controller.isInitialLoading.value && controller.wishlist.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                CircularProgressIndicator(
-                  color: AppColors.primaryGreen,
-                ), // Blinkit green loader
+                CircularProgressIndicator(color: AppColors.primaryGreen),
                 const SizedBox(height: 16),
                 Text(
                   'Loading your wishlist...',
-                  style: textTheme.bodyLarge?.copyWith(
-                    color: AppColors.textMedium,
-                  ), // Softer text color
+                  style: textTheme.bodyLarge?.copyWith(color: AppColors.textMedium),
                 ),
               ],
             ),
@@ -77,7 +84,7 @@ class WishlistScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Your Wishlist is Waiting!',
+                    'Your Wishlist is Empty!',
                     style: textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w700,
                       color: AppColors.textDark,
@@ -86,11 +93,9 @@ class WishlistScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Add the products you love to your wishlist and keep track of them here. It’s the perfect way to save items for later!',
+                    'Add products you love to keep track of them here.',
                     textAlign: TextAlign.center,
-                    style: textTheme.bodyLarge?.copyWith(
-                      color: AppColors.textMedium,
-                    ),
+                    style: textTheme.bodyLarge?.copyWith(color: AppColors.textMedium),
                   ),
                 ],
               ),
@@ -98,89 +103,40 @@ class WishlistScreen extends StatelessWidget {
           );
         }
 
-        // Use ListView.separated for consistent spacing with dividers if desired,
-        // or just rely on item padding as implemented in WishlistCard.
-        return ListView.builder(
-          padding: const EdgeInsets.all(16), // Padding around the entire list
-          itemCount: controller.wishlist.length,
-          itemBuilder: (context, index) {
-            final product = controller.wishlist[index];
-            return Padding(
-              padding: const EdgeInsets.only(
-                bottom: 12,
-              ), // Consistent bottom padding for each card
-              child: WishlistCard(
-                product: product,
-                onRemove: () {
-                  // Show confirmation dialog before removing, good UX
-                  Get.defaultDialog(
-                    title: "Remove from Wishlist?",
-                    middleText:
-                        "Are you sure you want to remove '${product.name}' from your wishlist?",
-                    textConfirm: "Remove",
-                    textCancel: "Cancel",
-                    confirmTextColor: AppColors.white,
-                    buttonColor: AppColors.danger,
-                    cancelTextColor: AppColors.textDark,
-                    onConfirm: () {
+        return Stack(
+          children: [
+            ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: controller.wishlist.length,
+              itemBuilder: (context, index) {
+                final product = controller.wishlist[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: WishlistCard(
+                    product: product,
+                    isProcessing: controller.isProcessingItem.value == product.id || 
+                                  cartController.processingProductId.value.startsWith(product.id.toString()),
+                    onRemove: () {
+                      // Automatic removal as requested
                       controller.removeFromWishlist(product.id);
-                      Get.back(); // Close dialog
                     },
-                  );
-                },
-                onAddToCart: () async {
-                  final cartController = Get.find<CartController>();
-                  final availableVariants = product.variants.entries
-                      .where((entry) => entry.value > 0)
-                      .toList();
-
-                  if (availableVariants.isNotEmpty) {
-                    // For simplicity, add the first available variant.
-                    // A more complex solution would involve a variant selection UI.
-                    final singleVariant = availableVariants.first;
-                    final success = await cartController.addToCart(
-                      productId: product.id,
-                      variantName: singleVariant.key,
-                      product:
-                          product, // Pass product model for potential use in CartController
-                    );
-
-                    if (success) {
-                      Get.snackbar(
-                        'Added to Cart!',
-                        '${product.name} has been added to your cart.',
-                        snackPosition: SnackPosition.BOTTOM,
-                        backgroundColor: AppColors.primaryGreen,
-                        colorText: AppColors.white,
-                        margin: const EdgeInsets.all(10),
-                        borderRadius: 10,
-                      );
-                    } else {
-                      Get.snackbar(
-                        'Error',
-                        'Failed to add ${product.name} to cart.',
-                        snackPosition: SnackPosition.BOTTOM,
-                        backgroundColor: AppColors.danger,
-                        colorText: AppColors.white,
-                        margin: const EdgeInsets.all(10),
-                        borderRadius: 10,
-                      );
-                    }
-                  } else {
-                    Get.snackbar(
-                      'Out of Stock',
-                      '${product.name} is currently out of stock or has no available variants.',
-                      snackPosition: SnackPosition.BOTTOM,
-                      backgroundColor: AppColors.danger,
-                      colorText: AppColors.white,
-                      margin: const EdgeInsets.all(10),
-                      borderRadius: 10,
-                    );
-                  }
-                },
+                  ),
+                );
+              },
+            ),
+            // Show a subtle progress indicator if processing something
+            if (controller.isProcessingItem.value.isNotEmpty)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: LinearProgressIndicator(
+                  color: AppColors.primaryGreen,
+                  backgroundColor: Colors.transparent,
+                  minHeight: 2,
+                ),
               ),
-            );
-          },
+          ],
         );
       }),
     );

@@ -441,6 +441,7 @@ class CategoryService {
         final products =
             (data['products'] as List?)
                 ?.map((e) => ProductModel.fromJson(e))
+                .where((p) => p.active)
                 .toList() ??
             <ProductModel>[];
 

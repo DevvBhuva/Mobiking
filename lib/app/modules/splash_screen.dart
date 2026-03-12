@@ -4,6 +4,11 @@ import 'package:mobiking/app/controllers/login_controller.dart';
 import 'package:mobiking/app/modules/bottombar/Bottom_bar.dart';
 import 'package:mobiking/app/modules/login/login_screen.dart';
 
+import '../controllers/category_controller.dart';
+import '../controllers/home_controller.dart';
+import '../controllers/product_controller.dart';
+import '../controllers/sub_category_controller.dart';
+
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
 
@@ -18,23 +23,35 @@ class _SplashScreenState extends State<SplashScreen> {
     _navigateToNextScreen();
   }
 
-  void _navigateToNextScreen() {
-    Future.delayed(const Duration(milliseconds: 3000), () {
-      final LoginController loginController = Get.find<LoginController>();
-      if (loginController.currentUser.value != null) {
-        Get.off(
-          () => MainContainerScreen(),
-          transition: Transition.fadeIn,
-          duration: const Duration(milliseconds: 500),
-        );
-      } else {
-        Get.off(
-          () => PhoneAuthScreen(),
-          transition: Transition.fadeIn,
-          duration: const Duration(milliseconds: 500),
-        );
-      }
-    });
+  Future<void> _navigateToNextScreen() async {
+    // 🚀 Start pre-fetching all critical data in parallel while splash is showing
+    final categoryController = Get.find<CategoryController>();
+    final productController = Get.find<ProductController>();
+    final subCategoryController = Get.find<SubCategoryController>();
+    final homeController = Get.find<HomeController>();
+
+    categoryController.fetchCategories();
+    productController.loadProductsOnDemand();
+    subCategoryController.loadSubCategories();
+    homeController.fetchHomeLayout();
+
+    // Increased delay to 2500ms so the logo animation can play fully
+    await Future.delayed(const Duration(milliseconds: 2500));
+    
+    final LoginController loginController = Get.find<LoginController>();
+    if (loginController.currentUser.value != null) {
+      Get.off(
+        () => MainContainerScreen(),
+        transition: Transition.fade,
+        duration: const Duration(milliseconds: 400),
+      );
+    } else {
+      Get.off(
+        () => PhoneAuthScreen(),
+        transition: Transition.fade,
+        duration: const Duration(milliseconds: 400),
+      );
+    }
   }
 
   @override
@@ -42,9 +59,11 @@ class _SplashScreenState extends State<SplashScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       // Wrap the body with SafeArea to handle system insets
-      body: SafeArea(
-        child: Center(
-          child: Image.asset('assets/animations/splash1.gif', width: 150),
+      body: Center(
+        child: Image.asset(
+          'assets/animations/splash0001.gif',
+          width: MediaQuery.of(context).size.width * 0.6,
+          fit: BoxFit.contain,
         ),
       ),
     );

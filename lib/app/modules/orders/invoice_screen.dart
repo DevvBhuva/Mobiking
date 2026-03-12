@@ -613,25 +613,7 @@ class InvoiceScreen extends StatelessWidget {
                           child: pw.Column(
                             crossAxisAlignment: pw.CrossAxisAlignment.start,
                             children: [
-                              pw.Text(
-                                'Terms / Declaration',
-                                style: pw.TextStyle(
-                                  font: boldFont,
-                                  fontSize: 9,
-                                ),
-                              ),
-                              pw.Text(
-                                '1. Goods once sold will not be taken back or exchange',
-                                style: pw.TextStyle(font: font, fontSize: 8),
-                              ),
-                              pw.Text(
-                                '2. Mobiking will not be responsible for any warranty',
-                                style: pw.TextStyle(font: font, fontSize: 8),
-                              ),
-                              pw.Text(
-                                '3. All the disputes are subject to delhi jurisdiction only',
-                                style: pw.TextStyle(font: font, fontSize: 8),
-                              ),
+                              pw.SizedBox(height: 10),
                               pw.SizedBox(height: 10),
                               pw.Text(
                                 'Bank Details -',
@@ -1128,7 +1110,7 @@ class InvoiceScreen extends StatelessWidget {
                     const SizedBox(height: 8),
                     _buildDetailRow(
                       'Address',
-                      order.address ?? 'N/A',
+                      '${order.address ?? 'N/A'}${order.city != null ? ", ${order.city}" : ""}\n${order.state ?? ""} ${order.pincode ?? ""}'.trim(),
                       textTheme,
                     ),
                     if (order.gst != null && order.gst!.isNotEmpty && order.gst != "0") ...[

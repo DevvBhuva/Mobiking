@@ -93,7 +93,9 @@ class CategoryProductsScreen extends StatelessWidget {
                           padding: EdgeInsets.only(top: 20),
                           child: AllProductsGridView(
                             showTitle: false,
-                            products: subCategory.products!,
+                                products: subCategory.products!
+                                    .where((p) => p.active == true)
+                                    .toList(),
 
                             // Adjust padding if needed, or remove as AllProductsGridView has internal padding
                             // horizontalPadding: 0, // Set to 0 if AllProductsGridView handles its own padding

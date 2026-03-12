@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:mobiking/app/data/CompanyDetail_model.dart';
 import 'package:mobiking/app/services/policy_service.dart';
 import 'package:mobiking/app/themes/app_theme.dart';
+import 'package:flutter_html/flutter_html.dart';
 
 class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
@@ -26,50 +26,7 @@ class _AboutScreenState extends State<AboutScreen> {
     });
   }
 
-  Future<void> _launchUrl(String url) async {
-    final Uri uri = Uri.parse(url);
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Could not open link')));
-      }
-    }
-  }
 
-  Future<void> _makePhoneCall(String phoneNumber) async {
-    final Uri uri = Uri.parse('tel:$phoneNumber');
-    if (!await launchUrl(uri)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not make phone call')),
-        );
-      }
-    }
-  }
-
-  Future<void> _sendEmail(String email) async {
-    final Uri uri = Uri.parse('mailto:$email');
-    if (!await launchUrl(uri)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open email app')),
-        );
-      }
-    }
-  }
-
-  Future<void> _openWhatsApp(String phoneNumber) async {
-    final cleanNumber = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
-    final Uri uri = Uri.parse('https://wa.me/$cleanNumber');
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open WhatsApp')),
-        );
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -221,76 +178,359 @@ class _AboutScreenState extends State<AboutScreen> {
                         ),
                       ),
 
-                    // Contact Information Section
-                    _buildSectionCard(
-                      title: 'Contact Information',
-                      icon: Icons.contact_phone_outlined,
-                      children: [
-                        _buildContactItem(
-                          icon: Icons.location_on_outlined,
-                          title: 'Address',
-                          value: details.address,
-                          onTap: null,
-                        ),
-                        _buildContactItem(
-                          icon: Icons.phone_outlined,
-                          title: 'Phone',
-                          value: details.phoneNo,
-                          onTap: () => _makePhoneCall(details.phoneNo),
-                        ),
-                        _buildContactItem(
-                          icon: Icons.email_outlined,
-                          title: 'Email',
-                          value: details.email,
-                          onTap: () => _sendEmail(details.email),
-                        ),
-                        if (details.whatsappNo.isNotEmpty)
-                          _buildContactItem(
-                            icon: Icons.chat_outlined,
-                            title: 'WhatsApp',
-                            value: details.whatsappNo,
-                            onTap: () => _openWhatsApp(details.whatsappNo),
+                    // Dynamic HTML Content or Fallback Static Sections
+                    if (details.about != null && details.about!.trim().isNotEmpty)
+                      Html(
+                        data: details.about!,
+                        style: {
+                          "h2": Style(
+                            fontSize: FontSize(18),
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textDark,
+                            margin: Margins.only(top: 24, bottom: 8),
                           ),
+                          "p": Style(
+                            fontSize: FontSize(14),
+                            lineHeight: LineHeight(1.5),
+                            color: Colors.grey.shade800,
+                            margin: Margins.only(bottom: 12),
+                          ),
+                          "ul": Style(
+                            padding: HtmlPaddings.only(left: 16),
+                            margin: Margins.only(bottom: 16),
+                          ),
+                          "li": Style(
+                            fontSize: FontSize(14),
+                            margin: Margins.only(bottom: 8),
+                            color: Colors.grey.shade800,
+                          ),
+                          ".section-card": Style(
+                            backgroundColor: Colors.white,
+                            padding: HtmlPaddings.all(16),
+                            margin: Margins.only(bottom: 16),
+                          ),
+                        },
+                      )
+                    else ...[
+                      // About Mobiking Section
+                    _buildSectionCard(
+                      title: 'About Mobiking',
+                      icon: Icons.info_outline_rounded,
+                      children: [
+                        Text(
+                          'Welcome to Mobiking, a platform created for customers who love to purchase premium gadgets but prefer to buy them at smart and affordable prices.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'In today’s market, many people wish to own branded electronics such as earbuds, smartwatches, power banks, chargers, gaming accessories, and other mobile gadgets from well-known brands like Apple, Sony, OnePlus, and Realme. However, the high retail price of these premium products often makes customers hesitate before making a purchase.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Mobiking was built with a simple idea — why pay full price when you can enjoy the same branded product at a much better value? This is where the open-box category becomes a smart and practical choice.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.primaryPurple,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Mobiking specializes in offering carefully verified open-box electronics, which are genuine branded products that may have been previously opened for several legitimate reasons. These may include bulk inventory purchased directly from brands or distributors, packaging damage during shipping, showroom display units, customer returns, or excess inventory from retailers.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Our team carefully inspects, tests, and verifies each product through a detailed quality check process before making it available for sale again. Only products that meet our functional standards are approved for listing on our platform.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'This process allows customers to purchase premium branded gadgets at significantly lower prices compared to traditional retail stores or even many wholesale markets.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Our goal is simple and clear:',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildBulletPoint('Provide genuine branded gadgets'),
+                        _buildBulletPoint(
+                          'Maintain transparency about product condition',
+                        ),
+                        _buildBulletPoint('Offer affordable prices for smart buyers'),
+                        _buildBulletPoint(
+                          'Build long-term customer trust through honest service',
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'At Mobiking, we believe that technology should be accessible without unnecessary high costs. By offering verified open-box products, we aim to help customers enjoy premium gadgets while making a smarter and more economical buying decision.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
                       ],
                     ),
 
                     const SizedBox(height: 16),
 
-                    // Social Media Section
+                    // Our Vision Section
                     _buildSectionCard(
-                      title: 'Follow Us',
-                      icon: Icons.share_outlined,
-                      children: [_buildSocialMediaGrid(details)],
+                      title: 'Our Vision',
+                      icon: Icons.visibility_outlined,
+                      children: [
+                        Text(
+                          'Our vision is to build a reliable and transparent platform where customers can confidently purchase quality electronics at reasonable prices.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'We aim to become a trusted destination for people who want to enjoy premium gadgets without overspending. By promoting open-box products, we also support a more sustainable approach to technology consumption, where perfectly usable devices are reused rather than wasted.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'In a market where gadget prices continue to rise, Mobiking focuses on helping customers make smarter buying decisions.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                      ],
                     ),
 
                     const SizedBox(height: 16),
 
-                    // App Links Section
-                    if (details.androidAppLink.isNotEmpty ||
-                        details.iosAppLink != null)
-                      _buildSectionCard(
-                        title: 'Download Our App',
-                        icon: Icons.smartphone_outlined,
-                        children: [
-                          if (details.androidAppLink.isNotEmpty)
-                            _buildAppDownloadButton(
-                              icon: Icons.android,
-                              label: 'Get it on Google Play',
-                              color: Colors.green,
-                              onTap: () => _launchUrl(details.androidAppLink),
-                            ),
-                          if (details.androidAppLink.isNotEmpty &&
-                              details.iosAppLink != null)
-                            const SizedBox(height: 12),
-                          if (details.iosAppLink != null)
-                            _buildAppDownloadButton(
-                              icon: Icons.apple,
-                              label: 'Download on App Store',
-                              color: Colors.black87,
-                              onTap: () => _launchUrl(details.iosAppLink!),
-                            ),
-                        ],
-                      ),
+                    // Our Mission Section
+                    _buildSectionCard(
+                      title: 'Our Mission',
+                      icon: Icons.track_changes_rounded,
+                      children: [
+                        Text(
+                          'Our mission at Mobiking is to create a shopping experience where customers can confidently purchase premium electronics at affordable prices, without worrying about quality or authenticity.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'We aim to bridge the gap between high-end branded gadgets and budget-conscious buyers by offering carefully verified open-box products that deliver excellent value for money.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'At Mobiking, we continuously work on improving our platform, including regularly upgrading our website and app interface (UI) to make browsing, comparing, and purchasing products simple and convenient for our customers.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Along with this, we actively monitor market trends and customer demand so that we can gradually expand our product range and introduce new electronic categories that customers are looking for. Our goal is to ensure that Mobiking remains a reliable destination for trending gadgets and essential tech accessories.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Through our efforts, we strive to ensure that every customer receives:',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildBulletPoint(
+                          'Genuine branded electronics from trusted manufacturers',
+                        ),
+                        _buildBulletPoint(
+                          'Properly tested and quality-verified gadgets',
+                        ),
+                        _buildBulletPoint('Honest and transparent product information'),
+                        _buildBulletPoint(
+                          'Fair and affordable pricing that delivers real value',
+                        ),
+                        _buildBulletPoint(
+                          'A growing range of popular electronics and accessories based on market trends',
+                        ),
+                        _buildBulletPoint(
+                          'Helpful customer assistance whenever support is required',
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'By consistently focusing on these commitments, Mobiking aims to build a platform where customers feel confident, comfortable, and satisfied with every purchase they make.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Our mission is not only to sell gadgets, but also to create a marketplace where customers feel they are getting the right product, at the right price, with the right level of trust.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primaryPurple,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Why Customers Prefer Mobiking Section
+                    _buildSectionCard(
+                      title: 'Why Customers Prefer Mobiking',
+                      icon: Icons.thumb_up_alt_outlined,
+                      children: [
+                        Text(
+                          'When customers shop for electronics online, they often look for three important things — trust, value for money, and product reliability. At Mobiking, we focus on these priorities so that customers can feel confident while making their purchase decisions.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Unlike many marketplaces that only focus on selling products, Mobiking is designed to provide a balanced combination of affordability and transparency, helping customers enjoy premium gadgets without paying unnecessarily high prices.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'One of the main reasons customers choose Mobiking is the significant price advantage. Many of the products available on our platform come from open-box inventory, bulk brand purchases, retail excess stock, or display units. Because of this sourcing model, we are able to offer well-known branded gadgets at prices that are often much lower than traditional retail stores.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Another important factor is our product verification process. Before any product is listed on our platform, it goes through a careful inspection and functional testing process by our team. This helps ensure that customers receive gadgets that are properly working and ready to use, even though they may be sold under the open-box category.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Mobiking also focuses on offering popular and trending gadget categories such as earbuds, smartwatches, neckbands, power banks, chargers, and gaming accessories. As technology trends continue to evolve, we regularly explore new categories so that customers can find the gadgets they are looking for in one place.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Some of the key reasons customers prefer Mobiking include:',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildBulletPoint(
+                          'Access to genuine branded electronics at more affordable prices',
+                        ),
+                        _buildBulletPoint(
+                          'Verified open-box products that go through a quality checking process',
+                        ),
+                        _buildBulletPoint(
+                          'A wide range of popular and trending gadget categories',
+                        ),
+                        _buildBulletPoint(
+                          'Limited stock deals that provide excellent value for smart buyers',
+                        ),
+                        _buildBulletPoint(
+                          'Secure payment options and convenient ordering process',
+                        ),
+                        _buildBulletPoint(
+                          'Responsive customer support whenever assistance is required',
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'For many customers, Mobiking has become a smart alternative to paying full retail prices, especially when the same gadget can be purchased at a better value without compromising functionality.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Our goal is to make sure that every customer who shops with Mobiking feels that they have made a practical, informed, and worthwhile purchase. At the end of the day, Mobiking is built for people who believe that buying smart is always better than simply buying expensive.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primaryPurple,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+                    ], // End of Fallback Static Content
+
+                    const SizedBox(height: 16),
+
                   ],
                 ),
               ),
@@ -380,194 +620,33 @@ class _AboutScreenState extends State<AboutScreen> {
     );
   }
 
-  Widget _buildContactItem({
-    required IconData icon,
-    required String title,
-    required String value,
-    VoidCallback? onTap,
-  }) {
+  Widget _buildBulletPoint(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  icon,
-                  size: 20,
-                  color: AppColors.primaryPurple ?? Colors.blue,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      value,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textDark,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (onTap != null)
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 16,
-                  color: Colors.grey.shade400,
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSocialMediaGrid(CompanyDetails details) {
-    final socialMedia = [
-      if (details.instaLink.isNotEmpty)
-        {
-          'icon': Icons.camera_alt,
-          'label': 'Instagram',
-          'url': details.instaLink,
-          'color': const Color(0xFFE4405F),
-        },
-      if (details.facebookLink != null)
-        {
-          'icon': Icons.facebook,
-          'label': 'Facebook',
-          'url': details.facebookLink!,
-          'color': const Color(0xFF1877F2),
-        },
-      if (details.twitterLink != null)
-        {
-          'icon': Icons.flutter_dash,
-          'label': 'Twitter',
-          'url': details.twitterLink!,
-          'color': const Color(0xFF1DA1F2),
-        },
-      if (details.websiteLink != null)
-        {
-          'icon': Icons.language,
-          'label': 'Website',
-          'url': details.websiteLink!,
-          'color': Colors.grey.shade700,
-        },
-    ];
-
-    if (socialMedia.isEmpty) {
-      return Text(
-        'No social media links available',
-        style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-      );
-    }
-
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: socialMedia.map((social) {
-        return InkWell(
-          onTap: () => _launchUrl(social['url'] as String),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            width: (MediaQuery.of(context).size.width - 80) / 2,
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      padding: const EdgeInsets.only(bottom: 8.0, left: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 6),
+            width: 6,
+            height: 6,
             decoration: BoxDecoration(
-              color: (social['color'] as Color).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: (social['color'] as Color).withOpacity(0.3),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  social['icon'] as IconData,
-                  color: social['color'] as Color,
-                  size: 24,
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    social['label'] as String,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: social['color'] as Color,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+              color: AppColors.primaryPurple,
+              shape: BoxShape.circle,
             ),
           ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildAppDownloadButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3), width: 1),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 32),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: color,
-                ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.4,
+                color: Colors.grey.shade800,
               ),
             ),
-            Icon(Icons.arrow_forward_ios_rounded, size: 16, color: color),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

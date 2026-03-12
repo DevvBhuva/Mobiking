@@ -4,12 +4,16 @@ import 'package:get/get.dart';
 import '../data/product_model.dart';
 import '../services/wishlist_service.dart';
 import 'package:mobiking/app/controllers/connectivity_controller.dart';
+import 'package:mobiking/app/themes/app_theme.dart';
+import 'package:mobiking/app/modules/profile/wishlist/Wish_list_screen.dart';
+import 'package:collection/collection.dart';
 
 class WishlistController extends GetxController {
   final WishlistService _service = WishlistService();
 
   var wishlist = <ProductModel>[].obs;
-  var isLoading = false.obs;
+  var isInitialLoading = false.obs;
+  var isProcessingItem = ''.obs; // Stores productId being processed
 
   final ConnectivityController _connectivityController =
       Get.find<ConnectivityController>();
@@ -26,7 +30,11 @@ class WishlistController extends GetxController {
   }
 
   Future<void> fetchWishlistOnScreenLoad() async {
+    if (wishlist.isEmpty) {
+      isInitialLoading.value = true;
+    }
     await _fetchWishlistInternal();
+    isInitialLoading.value = false;
   }
 
   Future<void> _handleConnectionRestored() async {
@@ -37,15 +45,11 @@ class WishlistController extends GetxController {
   }
 
   Future<void> _fetchWishlistInternal() async {
-    if (isLoading.value) return;
-    isLoading.value = true;
     try {
       final fetchedWishlist = await _service.fetchWishlist();
       wishlist.assignAll(fetchedWishlist);
     } catch (e) {
       print('WishlistController: Failed to fetch wishlist: $e');
-    } finally {
-      isLoading.value = false;
     }
   }
 
@@ -76,34 +80,76 @@ class WishlistController extends GetxController {
   }
 
   Future<void> addToWishlist(String productId) async {
-    if (isLoading.value) return;
-    isLoading.value = true;
+    if (isProcessingItem.value == productId) return;
+    
+    isProcessingItem.value = productId;
+    try {
+      if (isProductInWishlist(productId)) {
+        return;
+      }
 
-    if (isProductInWishlist(productId)) {
-      isLoading.value = false;
-      return;
+      final success = await _service.addToWishlist(productId);
+      if (success) {
+        final updatedList = await _service.fetchWishlist();
+        wishlist.assignAll(updatedList);
+        
+        Get.snackbar(
+          'Wishlist Updated',
+          'Product added to your wishlist',
+          mainButton: TextButton(
+            onPressed: () {
+              if (Get.isSnackbarOpen) Get.back();
+              Get.to(() => const WishlistScreen(), transition: Transition.rightToLeftWithFade);
+            },
+            child: const Text('GOTO', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+          icon: const Icon(Icons.favorite, color: Colors.white),
+          backgroundColor: AppColors.primaryGreen,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+          margin: const EdgeInsets.all(12),
+          borderRadius: 8,
+          duration: const Duration(seconds: 2),
+        );
+      }
+    } finally {
+      isProcessingItem.value = '';
     }
-
-    final success = await _service.addToWishlist(productId);
-    if (success) {
-      wishlist.assignAll(await _service.fetchWishlist());
-    } else {
-      loadWishlistFromLocal();
-    }
-    isLoading.value = false;
   }
 
   Future<void> removeFromWishlist(String productId) async {
-    if (isLoading.value) return;
-    isLoading.value = true;
+    if (isProcessingItem.value == productId) return;
+    
+    isProcessingItem.value = productId;
+    try {
+      // Find name before optimistic removal for nicer snackbar
+      final item = wishlist.firstWhereOrNull((p) => p.id == productId);
+      final itemName = item?.name ?? 'Product';
 
-    final success = await _service.removeFromWishlist(productId);
-    if (success) {
-      wishlist.assignAll(await _service.fetchWishlist());
-    } else {
-      loadWishlistFromLocal();
+      final success = await _service.removeFromWishlist(productId);
+      if (success) {
+        // Optimistic update
+        wishlist.removeWhere((p) => p.id == productId);
+        
+        // Refresh from backend to stay in sync
+        final updatedList = await _service.fetchWishlist();
+        wishlist.assignAll(updatedList);
+        
+        Get.snackbar(
+          'Removed',
+          '$itemName removed from wishlist',
+          icon: const Icon(Icons.delete_outline, color: Colors.white),
+          backgroundColor: AppColors.textDark.withOpacity(0.9),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+          margin: const EdgeInsets.all(12),
+          borderRadius: 8,
+          duration: const Duration(seconds: 2),
+        );
+      }
+    } finally {
+      isProcessingItem.value = '';
     }
-    isLoading.value = false;
   }
 
   void updateWishlistFromLogin(List<dynamic> newWishlistData) {

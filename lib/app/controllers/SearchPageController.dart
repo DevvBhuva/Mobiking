@@ -32,7 +32,7 @@ class SearchPageController extends GetxController {
   }
 
   void onSearchChanged(String query) {
-    final trimmedQuery = query.trim();
+    final trimmedQuery = query.trim().toUpperCase();
     showClearButton.value = trimmedQuery.isNotEmpty;
 
     // Prevent unnecessary processing

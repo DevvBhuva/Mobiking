@@ -43,6 +43,7 @@ class CompanyDetails {
   final String androidAppLink;
   final String? iosAppLink;
   final String? logoImage;
+  final String? about;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -59,6 +60,7 @@ class CompanyDetails {
     required this.androidAppLink,
     this.iosAppLink,
     this.logoImage,
+    this.about,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -77,6 +79,7 @@ class CompanyDetails {
       androidAppLink: json['androidAppLink'] as String,
       iosAppLink: json['iosAppLink'] as String?,
       logoImage: json['logoImage'] as String?,
+      about: json['about'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );
@@ -96,6 +99,7 @@ class CompanyDetails {
       'androidAppLink': androidAppLink,
       'iosAppLink': iosAppLink,
       'logoImage': logoImage,
+      'about': about,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };

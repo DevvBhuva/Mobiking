@@ -885,4 +885,40 @@ class OrderService extends GetxService {
       );
     }
   }
+
+  /*
+  /// Restores inventory for an order that was not completed.
+  Future<bool> restoreInventory(String orderId) async {
+    final url = Uri.parse('$_baseUrl/online/restore');
+    Map<String, String> headers;
+    try {
+      headers = _getHeaders();
+    } on OrderServiceException {
+      rethrow;
+    } catch (e) {
+      throw OrderServiceException('Failed to prepare headers for restore inventory: $e');
+    }
+
+    try {
+      _log('Attempting to restore inventory for order: $orderId');
+      
+      final response = await _makeRequest(
+        () => http.post(
+          url, 
+          headers: headers,
+          body: jsonEncode({'orderId': orderId}),
+        ),
+        'restoreInventory',
+      );
+
+      final responseBody = jsonDecode(response.body);
+      _log("restoreInventory Status: ${response.statusCode}, Body: ${response.body}");
+
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (e) {
+      _log('Error restoring inventory: $e');
+      return false;
+    }
+  }
+  */
 }

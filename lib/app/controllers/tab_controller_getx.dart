@@ -58,5 +58,27 @@ class TabControllerGetX extends GetxController
   void updateIndex(int index) {
     if (selectedIndex.value == index) return; // Prevent unnecessary updates
     selectedIndex.value = index;
+    // Also update the underlying controller if they are out of sync
+    if (controller.index != index && index < controller.length) {
+      controller.index = index;
+    }
+  }
+
+  /// ✅ New: Dynamically update TabController length
+  void resetWithLength(int length) {
+    if (length <= 0) return;
+    if (controller.length == length) return;
+
+    print('[TabControllerGetX] 🔄 Resetting with length: $length');
+    controller.dispose();
+    controller = TabController(length: length, vsync: this, initialIndex: selectedIndex.value.clamp(0, length - 1));
+    
+    controller.addListener(() {
+      selectedIndex.value = controller.index;
+    });
+    
+    if (selectedIndex.value >= length) {
+      selectedIndex.value = 0;
+    }
   }
 }

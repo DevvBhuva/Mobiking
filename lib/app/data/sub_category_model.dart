@@ -109,8 +109,10 @@ class SubCategory extends HiveObject {
     List<ProductModel> products = [];
     if (productsData is List) {
       if (productsData.isNotEmpty && productsData[0] is Map<String, dynamic>) {
+        // Filter: Active and In-Stock products only
         products = productsData
             .map((e) => ProductModel.fromJson(e as Map<String, dynamic>))
+            .where((p) => p.active)
             .toList();
 
         // Sort products: In stock first

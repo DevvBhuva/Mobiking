@@ -4,13 +4,24 @@ import 'package:get/get.dart';
 import 'package:mobiking/app/themes/app_theme.dart';
 import '../../../controllers/order_controller.dart';
 
-class PaymentMethodSelectionScreen extends StatelessWidget {
+class PaymentMethodSelectionScreen extends StatefulWidget {
+  final String? initialMethod;
+
+  const PaymentMethodSelectionScreen({Key? key, this.initialMethod}) : super(key: key);
+
+  @override
+  State<PaymentMethodSelectionScreen> createState() => _PaymentMethodSelectionScreenState();
+}
+
+class _PaymentMethodSelectionScreenState extends State<PaymentMethodSelectionScreen> {
   final OrderController orderController = Get.find<OrderController>();
+  late String selectedPaymentMethod;
 
-  // ✅ Local RxString to manage state
-  final RxString selectedPaymentMethod = ''.obs;
-
-  PaymentMethodSelectionScreen({Key? key}) : super(key: key);
+  @override
+  void initState() {
+    super.initState();
+    selectedPaymentMethod = widget.initialMethod ?? '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,113 +53,90 @@ class PaymentMethodSelectionScreen extends StatelessWidget {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              Obx(() {
-                return _buildPaymentOption(
-                  context: context,
-                  title: "Cash on Delivery (COD)",
-                  description: "Pay with cash upon delivery.",
-                  icon: Icons.money_rounded,
-                  onTap: orderController.isLoading.value
-                      ? null
-                      : () {
-                          selectedPaymentMethod.value = 'COD';
-                        },
-                  isLoading:
-                      orderController.isLoading.value &&
-                      selectedPaymentMethod.value == 'COD',
-                  isSelected: selectedPaymentMethod.value == 'COD',
-                );
-              }),
+              _buildPaymentOption(
+                context: context,
+                title: "Cash on Delivery (COD)",
+                description: "Pay with cash upon delivery.",
+                icon: Icons.money_rounded,
+                onTap: () {
+                        setState(() {
+                          selectedPaymentMethod = 'COD';
+                        });
+                      },
+                isSelected: selectedPaymentMethod == 'COD',
+              ),
               const SizedBox(height: 12),
-              Obx(() {
-                return _buildPaymentOption(
-                  context: context,
-                  title: "Online Payment",
-                  description: "Pay securely online with cards or UPI.",
-                  icon: Icons.payment_rounded,
-                  onTap: orderController.isLoading.value
-                      ? null
-                      : () {
-                          selectedPaymentMethod.value = 'Online';
-                        },
-                  isLoading:
-                      orderController.isLoading.value &&
-                      selectedPaymentMethod.value == 'Online',
-                  isSelected: selectedPaymentMethod.value == 'Online',
-                );
-              }),
+              _buildPaymentOption(
+                context: context,
+                title: "Online Payment",
+                description: "Pay securely online with cards or UPI.",
+                icon: Icons.payment_rounded,
+                onTap: () {
+                        setState(() {
+                          selectedPaymentMethod = 'online';
+                        });
+                      },
+                isSelected: selectedPaymentMethod == 'online',
+              ),
               const Spacer(),
-              Obx(
-                () => Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Get.back();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.danger.withOpacity(0.1),
-                          foregroundColor: AppColors.danger,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          minimumSize: const Size.fromHeight(48),
-                          elevation: 0,
-                          side: const BorderSide(
-                            color: AppColors.danger,
-                            width: 1,
-                          ),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.danger.withOpacity(0.1),
+                        foregroundColor: AppColors.danger,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text(
-                          'Cancel',
-                          style: textTheme.labelLarge?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.danger,
-                          ),
+                        minimumSize: const Size.fromHeight(48),
+                        elevation: 0,
+                        side: const BorderSide(
+                          color: AppColors.danger,
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.danger,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed:
-                            (selectedPaymentMethod.value.isEmpty ||
-                                orderController.isLoading.value)
-                            ? null
-                            : () async {
-                                Get.back(result: selectedPaymentMethod.value);
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primaryPurple,
-                          foregroundColor: AppColors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          minimumSize: const Size.fromHeight(48),
-                          elevation: 4,
-                          disabledBackgroundColor: AppColors.lightPurple
-                              .withOpacity(0.5),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: selectedPaymentMethod.isEmpty
+                          ? null
+                          : () {
+                              Navigator.of(context).pop(selectedPaymentMethod);
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryPurple,
+                        foregroundColor: AppColors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: orderController.isLoading.value
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  color: AppColors.white,
-                                  strokeWidth: 3,
-                                ),
-                              )
-                            : Text(
-                                'Select',
-                                style: textTheme.labelLarge?.copyWith(
-                                  color: AppColors.white,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                        minimumSize: const Size.fromHeight(48),
+                        elevation: 4,
+                        disabledBackgroundColor: AppColors.lightPurple
+                            .withOpacity(0.5),
+                      ),
+                      child: Text(
+                        'Select',
+                        style: textTheme.labelLarge?.copyWith(
+                          color: AppColors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -164,15 +152,12 @@ class PaymentMethodSelectionScreen extends StatelessWidget {
     required IconData icon,
     required VoidCallback? onTap,
     required bool isSelected,
-    required bool isLoading,
   }) {
     final TextTheme textTheme = Theme.of(context).textTheme;
 
     return GestureDetector(
       onTap: onTap,
-      child: Opacity(
-        opacity: isLoading ? 0.6 : 1.0,
-        child: Container(
+      child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: isSelected
@@ -240,7 +225,6 @@ class PaymentMethodSelectionScreen extends StatelessWidget {
             ],
           ),
         ),
-      ),
     );
   }
 }

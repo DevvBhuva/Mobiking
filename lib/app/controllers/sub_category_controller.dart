@@ -31,6 +31,7 @@ class SubCategoryController extends GetxController {
 
   /// Load subcategories with Hive caching support
   Future<void> loadSubCategories({bool forceRefresh = false}) async {
+    if (isLoading.value) return; // 🚀 Guard against duplicate requests
     try {
       if (subCategories.isEmpty) {
         isLoading.value = true;

@@ -51,14 +51,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void initState() {
     super.initState();
-    _loadInitialData();
+
+    // ✅ AUTO-NAV BACK: If cart becomes empty, go back to previous screen
+    ever(cartController.cartData, (cart) {
+      if (mounted && cartController.cartItems.isEmpty) {
+        debugPrint('🛒 CheckoutScreen: Cart is empty, navigating back.');
+        Get.back();
+      }
+    });
+
+    // 🚀 DELAY HEAVY WORK: Wait for the screen transition animation to finish
+    // This removes the "opening lag" by not running heavy CPU tasks during the slide
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (mounted) _loadInitialData();
+      });
+    });
   }
 
   Future<void> _loadInitialData() async {
-    // Fetch addresses and fresh cart data
+    // Fetch addresses, cart data, and order history (for first-order coupons)
     await Future.wait([
       addressController.fetchAddresses(),
       cartController.fetchAndLoadCartData(),
+      orderController.fetchOrderHistory(),
     ]);
 
     // Check for a default address in storage
@@ -74,35 +90,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       await _storage.write('default_address', firstAddress.toJson());
     }
 
-    // Fetch coupons
+    // Fetch coupons with filtering (Prepaid, First Order, etc.)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final cartTotal = _calculateCartTotal();
       couponController.setSubtotal(cartTotal);
-      couponController.fetchAvailableCoupons();
+      
+      final bool isCOD = _selectedPaymentMethod.value.toLowerCase() == 'cod';
+      final bool isFirstOrder = orderController.orderHistory.isEmpty;
+
+      couponController.fetchAvailableCoupons(
+        isOnlinePayment: !isCOD, // Show prepaid by default if nothing selected or online
+        isFirstOrder: isFirstOrder,
+        refresh: true, // Forces an API call every time we enter Checkout
+      );
     });
   }
 
-  double _calculateCartTotal() {
-    try {
-      double total = 0.0;
-      for (var item in cartController.cartItems) {
-        final productData = item['productId'];
-        final quantity = (item['quantity'] as int?) ?? 1;
+  @override
+  void dispose() {
+    _gstController.dispose();
+    super.dispose();
+  }
 
-        if (productData is Map<String, dynamic>) {
-          final product = ProductModel.fromJson(productData);
-          if (product.sellingPrice.isNotEmpty &&
-              product.sellingPrice.last.price != null) {
-            final itemPrice = product.sellingPrice.last.price!.toDouble();
-            total += itemPrice * quantity;
-          }
-        }
-      }
-      return double.parse(total.toStringAsFixed(2));
-    } catch (e) {
-      print('Error calculating cart total: $e');
-      return 0.0;
-    }
+  double _calculateCartTotal() {
+    return cartController.totalCartValue;
   }
 
   double _calculateGST(double cartTotal) {
@@ -327,38 +338,47 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                     const SizedBox(width: 8),
                     Obx(
-                      () => Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.success.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          "-₹${couponController.discountAmount.value.toStringAsFixed(0)}",
-                          style: textTheme.labelSmall?.copyWith(
-                            color: AppColors.success,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ),
+                      () => (couponController.discountAmount.value > 0)
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.success.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                "-₹${couponController.discountAmount.value.toStringAsFixed(2)}",
+                                style: textTheme.labelSmall?.copyWith(
+                                  color: AppColors.success,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            )
+                          : const SizedBox.shrink(),
                     ),
                   ],
                 ),
                 const SizedBox(height: 2),
                 Obx(
-                  () => Text(
-                    couponController.successMessage.value.isNotEmpty
-                        ? couponController.successMessage.value
-                        : "Coupon applied successfully",
-                    style: textTheme.bodySmall?.copyWith(
-                      color: AppColors.textMedium,
-                      fontSize: 12,
-                    ),
-                  ),
+                  () {
+                    final bool hasDiscount = couponController.discountAmount.value > 0;
+                    final String msg = couponController.successMessage.value;
+                    
+                    if (!hasDiscount && msg.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+                    
+                    return Text(
+                      msg.isNotEmpty ? msg : "Coupon applied successfully",
+                      style: textTheme.bodySmall?.copyWith(
+                        color: AppColors.textMedium,
+                        fontSize: 12,
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -516,103 +536,130 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           return const SizedBox.shrink();
         }),
         Obx(() {
-          if (couponController.availableCoupons.isNotEmpty) {
-            return Container(
-              decoration: BoxDecoration(
-                color: AppColors.neutralBackground.withOpacity(0.3),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(12),
-                  bottomRight: Radius.circular(12),
+          final coupons = couponController.availableCoupons;
+          if (coupons.isEmpty) return const SizedBox.shrink();
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Divider(height: 1),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Text(
+                  "AVAILABLE OFFERS",
+                  style: textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textMedium,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Available offers",
-                    style: textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textMedium,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: couponController.availableCoupons.take(3).map((
-                      coupon,
-                    ) {
-                      return _buildCompactCouponChip(coupon, textTheme);
-                    }).toList(),
-                  ),
-                ],
+              SizedBox(
+                height: 100,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  itemCount: coupons.length,
+                  itemBuilder: (context, index) {
+                    final coupon = coupons[index];
+                    return GestureDetector(
+                      onTap: () => couponController.selectCoupon(
+                        coupon,
+                        paymentMethod: _selectedPaymentMethod.value.isNotEmpty
+                            ? _selectedPaymentMethod.value
+                            : 'COD',
+                      ),
+                      child: Container(
+                        width: 160,
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.primaryPurple.withOpacity(0.2),
+                            width: 1,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primaryPurple.withOpacity(0.05),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.local_offer,
+                                  color: AppColors.primaryPurple,
+                                  size: 14,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  coupon.code,
+                                  style: textTheme.labelLarge?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.primaryPurple,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              coupon.formattedDiscount,
+                              style: textTheme.bodySmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textDark,
+                                fontSize: 11,
+                              ),
+                            ),
+                            if (coupon.description != null && 
+                                coupon.description!.isNotEmpty)
+                              Text(
+                                coupon.description!,
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: AppColors.textMedium,
+                                  fontSize: 9,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
-            );
-          }
-          return const SizedBox.shrink();
+              const SizedBox(height: 12),
+            ],
+          );
         }),
       ],
     );
   }
 
-  Widget _buildCompactCouponChip(dynamic coupon, TextTheme textTheme) {
-    final isUsable = _isCouponUsable(coupon);
-    final couponCode = _getCouponCode(coupon);
-    final discountText = _getCouponDiscountText(coupon);
-    return GestureDetector(
-      onTap: () {
-        if (isUsable) {
-          _selectCouponSafely(coupon);
-          _applyCouponWithBillingUpdate();
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: isUsable
-              ? AppColors.primaryPurple.withOpacity(0.1)
-              : AppColors.textLight.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: isUsable
-                ? AppColors.primaryPurple.withOpacity(0.2)
-                : AppColors.textLight.withOpacity(0.2),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              couponCode,
-              style: textTheme.labelSmall?.copyWith(
-                color: isUsable ? AppColors.primaryPurple : AppColors.textLight,
-                fontWeight: FontWeight.w600,
-                fontSize: 10,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              discountText,
-              style: textTheme.labelSmall?.copyWith(
-                color: isUsable ? AppColors.primaryPurple : AppColors.textLight,
-                fontWeight: FontWeight.w700,
-                fontSize: 10,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   void _applyCouponWithBillingUpdate() async {
     final cartTotal = _calculateCartTotal();
     couponController.setSubtotal(cartTotal);
     final couponCode = couponController.couponTextController.text.trim();
     if (couponCode.isNotEmpty) {
-      await couponController.validateAndApplyCoupon(couponCode);
+      await couponController.validateAndApplyCoupon(
+        couponCode,
+        paymentMethod: _selectedPaymentMethod.value.isNotEmpty 
+          ? _selectedPaymentMethod.value 
+          : 'COD'
+      );
     }
     if (mounted) {
       setState(() {});
@@ -621,12 +668,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   void _navigateToPaymentMethodSelection(BuildContext context) async {
     final String? result = await Get.to<String?>(
-      () => PaymentMethodSelectionScreen(),
+      () => PaymentMethodSelectionScreen(initialMethod: _selectedPaymentMethod.value),
       fullscreenDialog: true,
       transition: Transition.rightToLeft,
     );
     if (result != null && result.isNotEmpty) {
       _selectedPaymentMethod.value = result;
+      
+      // RE-FETCH COUPONS based on new payment method
+      final bool isCOD = result.toLowerCase() == 'cod';
+      couponController.fetchAvailableCoupons(
+        isOnlinePayment: !isCOD, // Show prepaid if not COD
+        isFirstOrder: orderController.orderHistory.isEmpty,
+        refresh: true,
+      );
+
+      _applyCouponWithBillingUpdate();
     }
   }
 
@@ -641,6 +698,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (!isAddressSelected) {
       Fluttertoast.showToast(
         msg: "Please select or add an address before placing the order.",
+        gravity: ToastGravity.TOP,
       );
       Get.to(() => AddressPage()); // This will now show address list first
       return;
@@ -655,6 +713,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       // Email can be optional, as per AddressPage.dart
       Fluttertoast.showToast(
         msg: "Please complete your user information before placing the order.",
+        gravity: ToastGravity.TOP,
       );
       Get.to(
         () => AddressPage(initialShowUserSection: true),
@@ -692,8 +751,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       print('[CheckoutScreen] Order data with GST: $orderData'); // Added log
       if (_selectedPaymentMethod.value == 'COD') {
         await orderController.placeOrder(method: 'COD');
-      } else if (_selectedPaymentMethod.value == 'Online') {
-        await orderController.placeOrder(method: 'Online');
+      } else if (_selectedPaymentMethod.value == 'online') {
+        await orderController.placeOrder(method: 'online');
       }
     } finally {
       orderController.isLoading.value = false;
@@ -736,8 +795,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final Color blinkitBackground = AppColors.neutralBackground;
     return WillPopScope(
       onWillPop: () async {
+        // Clear coupon and GST when leaving the checkout screen back to Cart
+        couponController.reset();
+        orderController.resetGST();
+        
         if (cartController.cartItems.isEmpty) {
-          Get.offAll(() => MainContainerScreen());
+          Get.back();
           return false;
         } else {
           return true;
@@ -758,7 +821,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           elevation: 0.5,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded),
-            onPressed: () => Get.back(),
+            onPressed: () => Navigator.maybePop(context),
           ),
         ),
         body: Obx(() {
@@ -779,11 +842,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               .toList();
           final billingBreakdown = _calculateBillingBreakdown();
           final relatedProducts = _getRelatedProducts(cartProductsWithDetails);
-          return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          return SafeArea(
+            bottom: true,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 Container(
                   decoration: BoxDecoration(
                     color: AppColors.white,
@@ -805,21 +870,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: cartProductsWithDetails.length,
-                        itemBuilder: (context, index) {
-                          final entry = cartProductsWithDetails[index];
-                          final product = entry['product'] as ProductModel;
-                          final quantity = entry['quantity'] as int;
-                          final variantName = entry['variantName'].toString();
-                          return CartItemTile(
-                            product: product,
-                            quantity: quantity,
-                            variantName: variantName,
-                          );
-                        },
+                      RepaintBoundary(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: cartProductsWithDetails.length,
+                          itemBuilder: (context, index) {
+                            final entry = cartProductsWithDetails[index];
+                            final product = entry['product'] as ProductModel;
+                            final quantity = entry['quantity'] as int;
+                            final variantName = entry['variantName'].toString();
+                            return CartItemTile(
+                              product: product,
+                              quantity: quantity,
+                              variantName: variantName,
+                            );
+                          },
+                        ),
                       ),
                     ],
                   ),
@@ -837,9 +904,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                   ),
                   child: BillSection(
-                    itemTotal: billingBreakdown['cartTotal']!.toInt(),
-                    deliveryCharge: billingBreakdown['deliveryCharge']!.toInt(),
-                    couponDiscount: billingBreakdown['couponDiscount']!.toInt(),
+                    itemTotal: billingBreakdown['cartTotal']!,
+                    deliveryCharge: billingBreakdown['deliveryCharge']!,
+                    couponDiscount: billingBreakdown['couponDiscount']!,
+                    isCouponApplied: couponController.isCouponApplied.value,
                     gstNumberController:
                         _gstController, // Pass the controller here
                   ),
@@ -876,48 +944,51 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  SizedBox(
-                    height: 230,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: relatedProducts.length,
-                      itemBuilder: (context, index) {
-                        final relatedProduct = relatedProducts[index];
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 5),
-                          child: SizedBox(
-                            width: 120,
-                            child: AllProductGridCard(
-                              product: relatedProduct,
-                              heroTag:
-                                  'product_image_checkout_related_${relatedProduct.id}_$index',
-                              onTap: (tappedProduct) {
-                                Get.to(
-                                  () => ProductPage(
-                                    product: tappedProduct,
-                                    heroTag:
-                                        'product_image_checkout_related_${tappedProduct.id}_$index',
-                                  ),
-                                  transition: Transition.fadeIn,
-                                  duration: const Duration(milliseconds: 300),
-                                );
-                              },
+                  RepaintBoundary(
+                    child: SizedBox(
+                      height: 230,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: relatedProducts.length,
+                        itemBuilder: (context, index) {
+                          final relatedProduct = relatedProducts[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 5),
+                            child: SizedBox(
+                              width: 120,
+                              child: AllProductGridCard(
+                                product: relatedProduct,
+                                heroTag:
+                                    'product_image_checkout_related_${relatedProduct.id}_$index',
+                                onTap: (tappedProduct) {
+                                  Get.to(
+                                    () => ProductPage(
+                                      product: tappedProduct,
+                                      heroTag:
+                                          'product_image_checkout_related_${tappedProduct.id}_$index',
+                                    ),
+                                    transition: Transition.fadeIn,
+                                    duration: const Duration(milliseconds: 300),
+                                  );
+                                },
+                              ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ],
                 const SizedBox(height: 100),
               ],
             ),
-          );
-        }),
-        bottomNavigationBar: _buildDynamicBottomAppBar(context),
-      ),
-    );
-  }
+          ),
+        );
+      }),
+      bottomNavigationBar: _buildDynamicBottomAppBar(context),
+    ),
+  );
+}
 
   Widget _buildDynamicBottomAppBar(BuildContext context) {
     final TextTheme textTheme = Theme.of(context).textTheme;
@@ -1004,7 +1075,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   TextButton(
                     onPressed: () async {
                       final result = await Get.to(
-                        () => AddressPage(showAddressListFirst: true),
+                        () => AddressPage(
+                          showAddressListFirst: true,
+                          isSelectionMode: true,
+                        ),
                       );
                       if (result == true) {
                         _loadInitialData();
@@ -1121,7 +1195,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   Row(
                                     children: [
                                       Text(
-                                        "₹${displayTotal.toStringAsFixed(0)}",
+                                        "₹${displayTotal.toStringAsFixed(2)}",
                                         style: textTheme.bodyMedium?.copyWith(
                                           color: AppColors.white,
                                           fontWeight: FontWeight.bold,
@@ -1141,14 +1215,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       ],
                                     ],
                                   ),
-                                  Text(
-                                    couponController.isCouponApplied.value
-                                        ? "Saved ₹${billingBreakdown['couponDiscount']!.toStringAsFixed(0)}"
-                                        : "Total",
-                                    style: textTheme.labelSmall?.copyWith(
-                                      color: AppColors.white.withOpacity(0.8),
+                                    Text(
+                                      (couponController.isCouponApplied.value && billingBreakdown['couponDiscount']! > 0)
+                                          ? "Saved ₹${billingBreakdown['couponDiscount']!.toStringAsFixed(2)}"
+                                          : "Total",
+                                      style: textTheme.labelSmall?.copyWith(
+                                        color: AppColors.white.withOpacity(0.8),
+                                      ),
                                     ),
-                                  ),
                                 ],
                               ),
                               Row(
