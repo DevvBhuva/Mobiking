@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mobiking/app/services/coupon_service.dart';
@@ -6,12 +5,12 @@ import 'package:mobiking/app/data/coupon_model.dart';
 
 void main() async {
   // Mocking what's needed for testing
-  Get.put(CouponService());
+  Get.put(CouponService(this._dio, this.box));
   final service = Get.find<CouponService>();
-  
+
   print('Fetching coupons...');
   final response = await service.getAllCoupons(page: 1, limit: 100);
-  
+
   if (response.success) {
     print('Found ${response.data.length} coupons total.');
     for (var coupon in response.data) {

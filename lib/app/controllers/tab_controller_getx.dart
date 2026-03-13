@@ -1,84 +1,83 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-// This controller manages the TabController for your categories/tabs.
-// It uses GetSingleTickerProviderStateMixin because TabController requires a TickerProvider.
 class TabControllerGetX extends GetxController
     with GetSingleTickerProviderStateMixin {
-  // late keyword means it will be initialized before first use, but not in the constructor.
-  // It's initialized in onInit().
+
   late TabController controller;
 
-  // RxInt for the currently selected tab index.
-  // Using .obs makes it observable, so any Obx widget listening to it will rebuild.
   final RxInt selectedIndex = 0.obs;
 
   @override
   void onInit() {
     super.onInit();
-    // Initialize the TabController.
-    // 'length' should be the total number of tabs you have.
-    // Ensure this matches the number of tabs in your CustomTabBarSection.
-    // For now, I'm setting it to 3 as a common default, adjust if needed.
-    controller = TabController(length: 3, vsync: this);
 
-    // Add a listener to the TabController to update our observable index.
-    // This keeps the GetX RxInt in sync with the TabController's state.
+    controller = TabController(
+      length: 3,
+      vsync: this,
+    );
+
+    _attachListener();
+  }
+
+  void _attachListener() {
     controller.addListener(() {
-      if (controller.indexIsChanging || !controller.indexIsChanging) {
-        // Only update if the index actually changes, or on initial load
-        // to ensure Obx reacts. controller.indexIsChanging check can prevent
-        // unnecessary rapid updates during animation, but for simplicity,
-        // updating on any change is often fine.
+      if (!controller.indexIsChanging &&
+          controller.index < controller.length) {
         selectedIndex.value = controller.index;
       }
     });
-
-    // You might want to pre-select a tab if needed
-    // selectedIndex.value = 0; // Default to the first tab
   }
 
-  // Called when the controller is removed from memory (e.g., when its parent page is disposed).
-  // Crucial for performance to dispose of the TabController.
-  @override
-  void onClose() {
-    controller.dispose();
-    super.onClose();
-  }
-
-  // You can add methods to programmatically change tabs if needed
   void changeTab(int index) {
-    if (index >= 0 && index < controller.length) {
+    if (index < 0 || index >= controller.length) return;
+
+    if (controller.index != index) {
       controller.animateTo(index);
-      selectedIndex.value =
-          index; // Update the observable value manually if not already updated by listener
+      selectedIndex.value = index;
     }
   }
 
   void updateIndex(int index) {
-    if (selectedIndex.value == index) return; // Prevent unnecessary updates
+    if (index < 0 || index >= controller.length) return;
+
+    if (selectedIndex.value == index) return;
+
     selectedIndex.value = index;
-    // Also update the underlying controller if they are out of sync
-    if (controller.index != index && index < controller.length) {
-      controller.index = index;
+
+    if (controller.index != index) {
+      controller.animateTo(index);
     }
   }
 
-  /// ✅ New: Dynamically update TabController length
   void resetWithLength(int length) {
     if (length <= 0) return;
     if (controller.length == length) return;
 
-    print('[TabControllerGetX] 🔄 Resetting with length: $length');
+    print('[TabControllerGetX] Resetting with length: $length');
+
+    final int newIndex = selectedIndex.value.clamp(0, length - 1);
+
+    final oldController = controller;
+
+    controller = TabController(
+      length: length,
+      vsync: this,
+      initialIndex: newIndex,
+    );
+
+    _attachListener();
+
+    selectedIndex.value = newIndex;
+
+    update();
+
+    oldController.dispose();
+  }
+
+  @override
+  void onClose() {
     controller.dispose();
-    controller = TabController(length: length, vsync: this, initialIndex: selectedIndex.value.clamp(0, length - 1));
-    
-    controller.addListener(() {
-      selectedIndex.value = controller.index;
-    });
-    
-    if (selectedIndex.value >= length) {
-      selectedIndex.value = 0;
-    }
+    super.onClose();
   }
 }
