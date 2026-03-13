@@ -21,9 +21,6 @@ workflows:
           pod install
           cd ..
 
-      - name: Generate iOS build files
-        script: flutter build ios --debug --no-codesign
-
       - name: Build IPA
         script: flutter build ipa --release
 
